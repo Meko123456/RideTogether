@@ -31,13 +31,18 @@ or location permission exists.
 
 | Area | State |
 |---|---|
-| Domain model (`LatLng`/`Geo`, `Room`, `RiderPresence`, `RideEvent`, `JoinCode`) | ✅ 23 tests |
-| Room state machine | ⬜ next |
-| Alert engine (fallback / separation detection) | ⬜ next |
-| Live map (MapLibre + OSM) | ⬜ |
+| Domain model (`LatLng`/`Geo`, `Room`, `RiderPresence`, `RideEvent`, `JoinCode`) | ✅ |
+| Room lifecycle + join policy state machines | ✅ |
+| Alert engine (separation / incident detection) | ✅ mutation-tested |
+| Android app shell (create + join a ride, room controls, invite links) | ✅ |
+| Live map (MapLibre + OSM) | ⬜ next |
+| Foreground-service location + adaptive intervals | ⬜ next |
 | Realtime sync (behind a `RealtimeClient` interface) | ⬜ |
-| Foreground-service location + adaptive intervals | ⬜ |
+| Quick messages + TTS through a helmet headset | ⬜ |
 | iOS app | ⬜ phase 2 |
+
+84 tests, all in `:shared` — the engine is driven by synthetic GPS traces, so the interesting
+logic is covered without a device.
 
 ## Architecture
 
@@ -53,6 +58,10 @@ androidApp/  Compose UI, foreground-service location, notifications
 Modules are deliberately fewer than the spec's eleven for now: `:shared` + `:androidApp` keeps
 the build fast and honest while the core is in flux, and the spec's `:core:*` split is a
 mechanical refactor once the seams have stopped moving.
+
+Where the code deliberately departs from the spec — the alert rule above all — the reasoning is
+recorded in [`docs/DECISIONS.md`](docs/DECISIONS.md) rather than left for the next reader to
+reverse-engineer.
 
 ## Setup
 
