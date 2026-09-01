@@ -256,6 +256,43 @@ wrong costs one tap — which is what makes it acceptable to arm at all.
 
 ---
 
+## 15. The ride summary reports moving averages, and says what it threw away
+
+**Spec §2.6** asks for distance, duration, average and max speed per rider, and a stop count.
+
+**Code:** average speed is over *moving* time only, implausible fixes are discarded **and
+counted**, max speed is median-filtered, and moving-versus-stopped is decided by displacement
+rather than by the provider's reported speed.
+
+**Why:** each of these is the difference between a number a rider believes and one that makes them
+distrust the whole app.
+
+- **Wall-clock average is useless.** A two-hour ride with a lunch stop averages ~40 km/h, which
+  reads like a measurement error. The moving average matches the ride they remember, and stopped
+  time is reported next to it so nothing is hidden to flatter the number.
+- **One bad fix is worth kilometres.** A GPS glitch teleports a few hundred metres and back;
+  believed literally it inflates distance and reports a top speed of 300 km/h — and the top speed
+  is exactly the number a rider screenshots. Segments implying more than ~270 km/h are dropped, as
+  are segments spanning a coverage gap over two minutes, because a straight line through a tunnel
+  is a ride nobody took. The discard count is part of the output: a trace with dozens of them has
+  no business presenting itself as precise.
+- **Max speed is the maximum of a three-point median.** A genuine fast stretch spans several
+  fixes and survives; a lone spike is outvoted by its neighbours.
+- **Displacement decides moving versus stopped.** The reported speed disagrees in a case that
+  matters: a rider parked with reporting slowed to once a minute pulls away, and their first fix
+  says 20 m/s with the bike not having moved. Trusting it books that whole stationary minute as
+  riding, and the lunch stop leaks back into the moving average. Displacement cannot lie about
+  having stayed put. The reported speed is still preferred for the max-speed series, where an
+  instantaneous figure is what is wanted.
+- **A stop is a stop, not a traffic light.** Halts under a minute count towards stopped time but
+  not towards the stop count. "You stopped 34 times" is true and worthless.
+
+The ride's own distance is the furthest any single rider rode, not an average across riders: a
+rider who joined halfway has their own smaller number, and both are true, whereas the mean
+describes a ride nobody took.
+
+---
+
 ## Smaller notes
 
 - **`mipmap-anydpi-v26` keeps its qualifier** even though `minSdk` is 26 and lint calls it

@@ -39,10 +39,11 @@ or location permission exists.
 | Foreground-service location + adaptive intervals | ⬜ next |
 | Realtime sync (behind a `RealtimeClient` interface) | ⬜ |
 | Crash detection (pure detector + countdown; sensor source pending) | 🟡 core done |
+| Ride summary (distance, moving average, stops, glitch filtering) | 🟡 core done |
 | Quick messages + TTS through a helmet headset | ⬜ |
 | iOS app | ⬜ phase 2 |
 
-96 tests, all in `:shared` — the engine is driven by synthetic GPS traces, so the interesting
+111 tests, all in `:shared` — the engine is driven by synthetic GPS traces, so the interesting
 logic is covered without a device.
 
 ## Architecture
@@ -54,6 +55,7 @@ shared/      Kotlin Multiplatform, no platform deps in the core
   room/      room lifecycle + membership state machine
   alerts/    fallback / separation detection engine (pure, trace-tested)
   crash/     crash detection behind an interface, deliberately unable to reach alerts/
+  summary/   post-ride numbers from a recorded trace (glitch-filtered, moving averages)
 androidApp/  Compose UI, foreground-service location, notifications
 ```
 
