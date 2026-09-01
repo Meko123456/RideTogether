@@ -10,19 +10,18 @@ import kotlin.test.assertTrue
 class JoinCodeTest {
 
     @Test
-    fun `the alphabet excludes the characters people misread`() {
-        // Read aloud through a helmet, I/1, O/0 and S/5 are the classic confusions.
-        for (c in listOf('I', 'L', 'O', 'S', '0', '1', '5')) {
-            assertFalse(c in JoinCode.ALPHABET, "$c should not be in the alphabet")
+    fun `the alphabet is Crockford Base32 - no I, L, O or U`() {
+        for (c in listOf('I', 'L', 'O', 'U')) {
+            assertFalse(c in JoinCode.ALPHABET, "$c should not be a symbol")
         }
-        assertEquals(29, JoinCode.ALPHABET.length)
+        assertEquals(32, JoinCode.ALPHABET.length)
         assertEquals(JoinCode.ALPHABET.length, JoinCode.ALPHABET.toSet().size, "alphabet has duplicates")
     }
 
     @Test
-    fun `the code space is large enough to be unguessable`() {
-        // 29^6 ≈ 594 million.
-        assertEquals(594_823_321L, JoinCode.SPACE_SIZE)
+    fun `the code space keeps the full 30 bits`() {
+        // 32^6 = 1,073,741,824 — kept by normalising input rather than shrinking the alphabet.
+        assertEquals(1_073_741_824L, JoinCode.SPACE_SIZE)
     }
 
     @Test
@@ -30,7 +29,7 @@ class JoinCodeTest {
         assertTrue(JoinCode.isValid("ABC234"))
         assertFalse(JoinCode.isValid("ABC23"), "too short")
         assertFalse(JoinCode.isValid("ABC2345"), "too long")
-        assertFalse(JoinCode.isValid("ABC23O"), "contains an excluded look-alike")
+        assertFalse(JoinCode.isValid("ABC23O"), "O is not a symbol - it must be normalised to 0 first")
         assertFalse(JoinCode.isValid("abc234"), "lower case is not the canonical form")
         assertFalse(JoinCode.isValid(""))
     }
@@ -43,10 +42,20 @@ class JoinCodeTest {
     }
 
     @Test
-    fun `an ambiguous character is rejected rather than guessed`() {
-        // Silently "correcting" a typo could drop a rider into a stranger's live ride.
-        assertNull(JoinCode.parseOrNull("ABCI34"))
-        assertNull(JoinCode.parseOrNull("ABC0 34"))
+    fun `confusable letters are recovered, not rejected`() {
+        // Typing O for 0 or I/L for 1 is the classic helmet-and-gloves mistake. Because those
+        // letters are never valid symbols, mapping them can only recover the intended code —
+        // it can never resolve to a different room.
+        assertEquals(JoinCode.parseOrNull("ABC034"), JoinCode.parseOrNull("ABCO34"))
+        assertEquals(JoinCode.parseOrNull("ABC134"), JoinCode.parseOrNull("ABCI34"))
+        assertEquals(JoinCode.parseOrNull("ABC134"), JoinCode.parseOrNull("ABCL34"))
+    }
+
+    @Test
+    fun `genuinely malformed input still yields nothing`() {
+        assertNull(JoinCode.parseOrNull("ABC"))
+        assertNull(JoinCode.parseOrNull("ABC23456"))
+        assertNull(JoinCode.parseOrNull("AB!234"))
     }
 
     @Test

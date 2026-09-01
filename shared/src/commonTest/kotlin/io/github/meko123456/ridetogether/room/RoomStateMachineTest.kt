@@ -38,14 +38,10 @@ class RoomStateMachineTest {
     }
 
     @Test
-    fun `an ordinary rider and the sweep cannot control the room`() {
+    fun `an ordinary rider cannot control the room`() {
         assertEquals(
             RoomTransition.Rejected(RoomRejection.NOT_PERMITTED),
             decide(RoomState.RIDING, RoomCommand.EndRide, role = Role.RIDER),
-        )
-        assertEquals(
-            RoomTransition.Rejected(RoomRejection.NOT_PERMITTED),
-            decide(RoomState.RIDING, RoomCommand.EndRide, role = Role.SWEEP),
         )
     }
 

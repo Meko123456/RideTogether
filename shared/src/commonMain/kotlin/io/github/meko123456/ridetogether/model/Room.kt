@@ -23,12 +23,17 @@ enum class RoomState {
     val alertsActive: Boolean get() = this == RIDING
 }
 
-/** What a member may do. */
+/**
+ * What a member may do.
+ *
+ * Note that "sweep" is deliberately NOT a role: being the designated last rider changes how the
+ * alert engine treats you, not what you are allowed to do, and a co-leader can also be the
+ * sweep. Folding it in here would make that legitimate combination unrepresentable — so it is a
+ * separate flag on [Member].
+ */
 enum class Role {
     LEADER,
     CO_LEADER,
-    /** The designated last rider — being at the back is their job, not a problem. */
-    SWEEP,
     RIDER,
     ;
 
@@ -36,11 +41,18 @@ enum class Role {
     val canControlRoom: Boolean get() = this == LEADER || this == CO_LEADER
 }
 
-/** A member of a room. */
+/**
+ * A member of a room.
+ *
+ * @property isSweep the designated last rider. Orthogonal to [role] on purpose: it changes alert
+ *   semantics (being at the back is their job) rather than permissions, and the sweep may also
+ *   be a co-leader.
+ */
 data class Member(
     val riderId: String,
     val displayName: String,
     val role: Role = Role.RIDER,
+    val isSweep: Boolean = false,
     val colorArgb: Int? = null,
     val motorcycle: String? = null,
 )
@@ -73,6 +85,9 @@ data class Room(
     fun member(riderId: String): Member? = members.firstOrNull { it.riderId == riderId }
 
     fun roleOf(riderId: String): Role? = member(riderId)?.role
+
+    /** The designated last rider, if the group named one. */
+    val sweep: Member? get() = members.firstOrNull { it.isSweep }
 
     companion object {
         const val MIN_RIDERS = 2

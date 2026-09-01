@@ -46,8 +46,22 @@ class RoomTest {
     fun `only leader and co-leader can control the room`() {
         assertTrue(Role.LEADER.canControlRoom)
         assertTrue(Role.CO_LEADER.canControlRoom)
-        assertFalse(Role.SWEEP.canControlRoom)
         assertFalse(Role.RIDER.canControlRoom)
+    }
+
+    @Test
+    fun `sweep is a flag, so a co-leader can also be the sweep`() {
+        // Sweep changes alert semantics, not permissions — as a Role value this pairing would
+        // have been unrepresentable.
+        val sweepCoLeader = Member("r2", "Alex", role = Role.CO_LEADER, isSweep = true)
+        val r = room(members = listOf(Member("leader", "Merab", Role.LEADER), sweepCoLeader))
+        assertTrue(sweepCoLeader.role.canControlRoom)
+        assertEquals("r2", r.sweep?.riderId)
+    }
+
+    @Test
+    fun `a room without a designated sweep reports none`() {
+        assertNull(room(members = listOf(Member("leader", "Merab", Role.LEADER))).sweep)
     }
 
     @Test
@@ -67,10 +81,10 @@ class RoomTest {
 
     @Test
     fun `members and roles are looked up by id`() {
-        val members = listOf(Member("leader", "Merab", Role.LEADER), Member("r2", "Alex", Role.SWEEP))
+        val members = listOf(Member("leader", "Merab", Role.LEADER), Member("r2", "Alex", Role.RIDER))
         val r = room(members = members)
         assertEquals("Merab", r.member("leader")?.displayName)
-        assertEquals(Role.SWEEP, r.roleOf("r2"))
+        assertEquals(Role.RIDER, r.roleOf("r2"))
         assertNull(r.member("nobody"))
         assertNull(r.roleOf("nobody"))
     }

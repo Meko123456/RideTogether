@@ -8,6 +8,10 @@ import kotlinx.datetime.Instant
  * [SIGNAL_LOST] is deliberately separate from [POSSIBLE_INCIDENT]: a phone going quiet is not
  * evidence of a crash, and conflating the two is how an app trains its users to ignore it
  * (spec 2.3.5).
+ *
+ * The spec's sketch also listed a PAUSED status; it is omitted here because it only duplicates
+ * [io.github.meko123456.ridetogether.model.RoomState.PAUSED] and could therefore only ever
+ * disagree with it. Whether the ride is paused is a property of the room, not of a rider.
  */
 enum class RiderStatus {
     ACTIVE,
@@ -15,7 +19,6 @@ enum class RiderStatus {
     STOPPED,
     SIGNAL_LOST,
     POSSIBLE_INCIDENT,
-    PAUSED,
 }
 
 /** One rider's last known position and derived state. */
