@@ -27,6 +27,11 @@ jobs:
       - name: Build + test shared and Android
         run: ./gradlew :shared:testAndroidHostTest :androidApp:assembleDebug :androidApp:lintDebug --stacktrace
 
+      # R8 and resource shrinking only run for release, so a debug-only CI lets the release build
+      # rot until submission day. Cheap here, and it has bitten this toolchain before.
+      - name: Release build (R8 + resource shrinking)
+        run: ./gradlew :androidApp:assembleRelease :androidApp:lintVitalRelease --stacktrace
+
   ios:
     # The iOS targets can only be compiled on macOS, so without this leg they are decorative:
     # they sat in the build file for four commits while commonMain did not actually compile for

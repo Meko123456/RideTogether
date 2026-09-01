@@ -41,7 +41,7 @@ class MainActivity : ComponentActivity() {
                 // should see which ride they are about to enter before they are in it.
                 LaunchedEffect(pendingCode) {
                     pendingCode?.let {
-                        vm.onCodeInputChange(it)
+                        vm.onInviteReceived(it)
                         pendingCode = null
                     }
                 }
@@ -82,6 +82,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Reached only because the activity is `singleTop`. Without it Android stacks a *second*
+     * MainActivity for an incoming invite — a fresh ViewModel on top of the running one, so the
+     * ride you were already in disappears behind a duplicate copy of the app. Found on a device;
+     * a tapped invite has to bring the app you are using forward, not open another one.
+     */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         pendingCode = codeFrom(intent)

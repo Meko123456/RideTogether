@@ -67,6 +67,25 @@ class RideViewModel : ViewModel() {
         notice = null
     }
 
+    /**
+     * An invite arrived from a `ridetogether://join/<CODE>` link. The code is filled in rather
+     * than acted on, so the rider sees which ride they are about to enter.
+     *
+     * If they are already in a ride, that field is not on screen — so say something. Yanking
+     * someone out of a ride in progress because they tapped a link would be worse, but a tap
+     * that appears to do nothing is its own kind of broken.
+     */
+    fun onInviteReceived(rawCode: String) {
+        onCodeInputChange(rawCode)
+        if (room == null) return
+        val resolved = JoinCode.parseOrNull(rawCode)
+        notice = if (resolved != null) {
+            "Invite for ${resolved.value} — leave this ride first to join it."
+        } else {
+            "That invite link isn't a valid ride code."
+        }
+    }
+
     fun createRide() {
         val code = JoinCode.generate { bound -> Random.nextInt(bound) }
         val created = Room(
