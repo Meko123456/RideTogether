@@ -26,3 +26,22 @@ jobs:
 
       - name: Build + test shared and Android
         run: ./gradlew :shared:testAndroidHostTest :androidApp:assembleDebug :androidApp:lintDebug --stacktrace
+
+  ios:
+    # The iOS targets can only be compiled on macOS, so without this leg they are decorative:
+    # they sat in the build file for four commits while commonMain did not actually compile for
+    # Native (a JVM-only annotation), and nothing noticed. This runs the same shared test suite
+    # on the simulator target.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Test shared on the iOS simulator target
+        run: ./gradlew :shared:iosSimulatorArm64Test --stacktrace

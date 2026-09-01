@@ -49,7 +49,7 @@ class JoinPolicyTest {
     }
 
     @Test
-    fun `an existing member rejoining is recognised, not duplicated`() {
+    fun `an existing member rejoining is recognised - not duplicated`() {
         // Reinstalling the app or recovering from a crash must not create a second rider.
         val r = room(members = listOf(Member("leader", "Merab"), Member("alex", "Alex")))
         assertEquals(JoinOutcome.AlreadyMember, JoinPolicy.evaluate(r, "alex", now))

@@ -43,7 +43,7 @@ class RoomTest {
     }
 
     @Test
-    fun `safety monitoring survives a pause, unlike the gap alerts`() {
+    fun `safety monitoring survives a pause - unlike the gap alerts`() {
         // The whole point of splitting the flag: a rider can come off riding to the pumps.
         assertTrue(RoomState.RIDING.safetyAlertsActive)
         assertTrue(RoomState.PAUSED.safetyAlertsActive)
@@ -68,7 +68,7 @@ class RoomTest {
     }
 
     @Test
-    fun `sweep is a flag, so a co-leader can also be the sweep`() {
+    fun `sweep is a flag so a co-leader can also be the sweep`() {
         // Sweep changes alert semantics, not permissions — as a Role value this pairing would
         // have been unrepresentable.
         val sweepCoLeader = Member("r2", "Alex", role = Role.CO_LEADER, isSweep = true)

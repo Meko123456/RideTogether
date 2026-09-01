@@ -25,7 +25,7 @@ class RoomStateMachineTest {
     ) = RoomStateMachine.decide(state, role, command, riders, created, endedAt, at)
 
     @Test
-    fun `the leader can start, pause, resume and end`() {
+    fun `the leader can start then pause then resume then end`() {
         assertEquals(RoomTransition.Accepted(RoomState.LOBBY, RoomState.RIDING), decide(RoomState.LOBBY, RoomCommand.StartRide))
         assertEquals(RoomTransition.Accepted(RoomState.RIDING, RoomState.PAUSED), decide(RoomState.RIDING, RoomCommand.PauseRide))
         assertEquals(RoomTransition.Accepted(RoomState.PAUSED, RoomState.RIDING), decide(RoomState.PAUSED, RoomCommand.ResumeRide))
@@ -98,7 +98,7 @@ class RoomStateMachineTest {
     }
 
     @Test
-    fun `an ended room lingers an hour for the summary, then expires`() {
+    fun `an ended room lingers an hour for the summary then expires`() {
         val endedAt = created + 2.hours
         assertFalse(RoomStateMachine.isExpired(RoomState.ENDED, created, endedAt, endedAt + 59.minutes))
         assertTrue(RoomStateMachine.isExpired(RoomState.ENDED, created, endedAt, endedAt + 1.hours))

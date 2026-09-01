@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 class JoinCodeTest {
 
     @Test
-    fun `the alphabet is Crockford Base32 - no I, L, O or U`() {
+    fun `the alphabet is Crockford Base32 - no I or L or O or U`() {
         for (c in listOf('I', 'L', 'O', 'U')) {
             assertFalse(c in JoinCode.ALPHABET, "$c should not be a symbol")
         }
@@ -35,14 +35,14 @@ class JoinCodeTest {
     }
 
     @Test
-    fun `parsing forgives case, spaces and dashes`() {
+    fun `parsing forgives case and spaces and dashes`() {
         assertEquals(JoinCode("ABC234"), JoinCode.parseOrNull("abc234"))
         assertEquals(JoinCode("ABC234"), JoinCode.parseOrNull(" ABC-234 "))
         assertEquals(JoinCode("ABC234"), JoinCode.parseOrNull("abc 234"))
     }
 
     @Test
-    fun `confusable letters are recovered, not rejected`() {
+    fun `confusable letters are recovered - not rejected`() {
         // Typing O for 0 or I/L for 1 is the classic helmet-and-gloves mistake. Because those
         // letters are never valid symbols, mapping them can only recover the intended code —
         // it can never resolve to a different room.

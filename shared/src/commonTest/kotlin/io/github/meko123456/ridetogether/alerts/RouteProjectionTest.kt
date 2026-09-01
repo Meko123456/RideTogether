@@ -72,7 +72,7 @@ class RouteProjectionTest {
     }
 
     @Test
-    fun `on a hairpin, two riders close together can be far apart along the route`() {
+    fun `on a hairpin two riders close together can be far apart along the route`() {
         // Out 3 km east, back 3 km west 100 m to the north — a switchback. Two riders 100 m
         // apart across the hairpin are ~6 km apart along the road, which is the entire reason
         // gaps are measured along the route rather than as the crow flies.

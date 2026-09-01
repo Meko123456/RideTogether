@@ -70,7 +70,7 @@ class AlertEngineTest {
     // ---------------------------------------------------------------- red light
 
     @Test
-    fun `a long red light never raises the loud group alert, and the prompt withdraws itself`() {
+    fun `a long red light never raises the loud group alert - and the prompt withdraws itself`() {
         // The honest case. A 100-second light at 60 km/h opens 1.77 km, so the gap genuinely
         // crosses the 1.5 km threshold while rising the whole time — a position trace simply
         // cannot tell this from a breakdown. What must hold is:
@@ -155,7 +155,7 @@ class AlertEngineTest {
     }
 
     @Test
-    fun `the alert is raised once, not on every tick`() {
+    fun `the alert is raised once - not on every tick`() {
         val engine = AlertEngine()
         var at = warmUp(engine)
         val alerts = mutableListOf<Alert>()
@@ -173,7 +173,7 @@ class AlertEngineTest {
     // ---------------------------------------------------------------- rejoining
 
     @Test
-    fun `closing the gap clears the alert, but only past the hysteresis band`() {
+    fun `closing the gap clears the alert - but only past the hysteresis band`() {
         val engine = AlertEngine()
         var at = warmUp(engine)
         var leaderPos = 2_000.0
@@ -277,7 +277,7 @@ class AlertEngineTest {
     // ------------------------------------------------------------- signal loss
 
     @Test
-    fun `going quiet is reported as signal lost, never as an incident`() {
+    fun `going quiet is reported as signal lost - never as an incident`() {
         val engine = AlertEngine()
         var at = warmUp(engine)
         val alerts = mutableListOf<Alert>()
@@ -366,7 +366,7 @@ class AlertEngineTest {
     // -------------------------------------------------------------------- sweep
 
     @Test
-    fun `the sweep is not flagged for being last, because that is their job`() {
+    fun `the sweep is not flagged for being last - that is their job`() {
         val engine = AlertEngine()
         val members = listOf(leader, sweep)
         var at = t0
@@ -607,7 +607,7 @@ class AlertEngineTest {
     // ------------------------------- stale while already convincingly stationary
 
     @Test
-    fun `a stationary rider whose phone then dies is signal lost, not an incident`() {
+    fun `a stationary rider whose phone then dies is signal lost - not an incident`() {
         // The dangerous ordering: they were verifiably parked for minutes, so the motion test is
         // satisfied — only the freshness guard stands between this and a false 'possible crash'.
         val engine = AlertEngine()

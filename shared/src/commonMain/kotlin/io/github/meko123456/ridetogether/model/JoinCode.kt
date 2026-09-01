@@ -1,5 +1,10 @@
 package io.github.meko123456.ridetogether.model
 
+// Explicit: kotlin.jvm.* is default-imported only on the JVM, so without this the iOS targets
+// fail to resolve @JvmInline. The annotation is an @OptionalExpectation, so it simply has no
+// effect where it does not apply.
+import kotlin.jvm.JvmInline
+
 /**
  * A 6-character room join code, typed out loud in a car park or read off a phone screen.
  *
