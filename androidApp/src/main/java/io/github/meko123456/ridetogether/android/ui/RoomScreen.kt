@@ -150,8 +150,13 @@ private fun StatusCard(room: Room) {
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                if (room.state.alertsActive) "Watching for anyone falling behind"
-                else "Fall-behind alerts are off",
+                when {
+                    room.state.separationAlertsActive -> "Watching for anyone falling behind"
+                    // Worth saying out loud: pausing quietens the nagging, not the safety net.
+                    room.state.safetyAlertsActive ->
+                        "Fall-behind alerts off while paused — still watching for trouble"
+                    else -> "Alerts off"
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

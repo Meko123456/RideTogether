@@ -34,12 +34,30 @@ class RoomTest {
     }
 
     @Test
-    fun `fallback alerts are active only while riding`() {
+    fun `separation alerts are active only while riding`() {
         // Paused means a fuel or food stop: everyone is meant to be spread out and stationary.
-        assertTrue(RoomState.RIDING.alertsActive)
-        assertFalse(RoomState.PAUSED.alertsActive)
-        assertFalse(RoomState.LOBBY.alertsActive)
-        assertFalse(RoomState.ENDED.alertsActive)
+        assertTrue(RoomState.RIDING.separationAlertsActive)
+        assertFalse(RoomState.PAUSED.separationAlertsActive)
+        assertFalse(RoomState.LOBBY.separationAlertsActive)
+        assertFalse(RoomState.ENDED.separationAlertsActive)
+    }
+
+    @Test
+    fun `safety monitoring survives a pause, unlike the gap alerts`() {
+        // The whole point of splitting the flag: a rider can come off riding to the pumps.
+        assertTrue(RoomState.RIDING.safetyAlertsActive)
+        assertTrue(RoomState.PAUSED.safetyAlertsActive)
+        assertFalse(RoomState.LOBBY.safetyAlertsActive)
+        assertFalse(RoomState.ENDED.safetyAlertsActive)
+    }
+
+    @Test
+    fun `safety monitoring is exactly as wide as location sharing`() {
+        // If we have someone's position we can watch out for them; if we do not, we cannot.
+        // Stated as a test so the two cannot drift apart.
+        for (state in RoomState.entries) {
+            assertEquals(state.sharesLocation, state.safetyAlertsActive, "mismatch for $state")
+        }
     }
 
     @Test

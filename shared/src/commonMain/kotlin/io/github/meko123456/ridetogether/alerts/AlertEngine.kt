@@ -129,12 +129,16 @@ class AlertEngine(private val config: AlertConfig = AlertConfig()) {
             // ---- freshness -------------------------------------------------------------
             val lastSeen = sample?.at ?: track.lastSampleAt
             val stale = lastSeen == null || (tick.now - lastSeen) > staleWindow(sample)
-            if (stale && !track.signalLost && lastSeen != null) {
-                alerts += Alert.SignalLost(id, tick.now, lastSeen)
-                track = track.copy(signalLost = true)
-            } else if (!stale && track.signalLost) {
-                alerts += Alert.SignalRestored(id, tick.now)
-                track = track.copy(signalLost = false)
+            // Only meaningful while the group is sharing location at all: in the lobby nobody is
+            // reporting yet, so "signal lost" would announce a problem that does not exist.
+            if (tick.roomState.safetyAlertsActive) {
+                if (stale && !track.signalLost && lastSeen != null) {
+                    alerts += Alert.SignalLost(id, tick.now, lastSeen)
+                    track = track.copy(signalLost = true)
+                } else if (!stale && track.signalLost) {
+                    alerts += Alert.SignalRestored(id, tick.now)
+                    track = track.copy(signalLost = false)
+                }
             }
 
             // ---- motion ----------------------------------------------------------------
@@ -154,8 +158,14 @@ class AlertEngine(private val config: AlertConfig = AlertConfig()) {
             val gap = gaps[id]
             val previousGap = track.gapMeters
             val rising = gap != null && previousGap != null && gap > previousGap
+            val separationWatched = tick.roomState.separationAlertsActive
             track = when {
                 gap == null -> track.copy(gapRisingSince = null)
+                // While separation is suppressed the gap is *expected* to grow — riders drift
+                // apart around a fuel station. Banking that growth would fire an alert the
+                // instant the ride resumed, at the rider still queueing for the pump, so the
+                // clock only runs while we are actually watching.
+                !separationWatched -> track.copy(gapRisingSince = null)
                 rising -> track.copy(gapRisingSince = track.gapRisingSince ?: tick.now)
                 else -> track.copy(gapRisingSince = null)
             }
@@ -168,7 +178,7 @@ class AlertEngine(private val config: AlertConfig = AlertConfig()) {
                 track = track.copy(promptedAt = null)
             }
 
-            val separationAllowed = tick.roomState.alertsActive &&
+            val separationAllowed = separationWatched &&
                 !member.isSweep &&
                 !stale &&
                 hasSettledIn(track, tick.now)
@@ -191,7 +201,9 @@ class AlertEngine(private val config: AlertConfig = AlertConfig()) {
 
             // ---- escalation ------------------------------------------------------------
             val unanswered = track.promptedAt?.let { tick.now - it >= config.responseTimeout } == true
-            if (!track.incident && unanswered && track.responded == null) {
+            // Note the flag: an unanswered "all good?" keeps escalating through a pause. Whoever
+            // hit pause did not answer for the rider who never replied.
+            if (!track.incident && unanswered && track.responded == null && tick.roomState.safetyAlertsActive) {
                 // Stale data during the escalation window is signal loss, NOT an incident: we
                 // genuinely do not know, and saying "possible crash" on no evidence is how the
                 // alert loses its meaning.
@@ -235,7 +247,11 @@ class AlertEngine(private val config: AlertConfig = AlertConfig()) {
     ): RiderStatus = when {
         track.incident -> RiderStatus.POSSIBLE_INCIDENT
         stale -> RiderStatus.SIGNAL_LOST
-        track.alerted && roomState.alertsActive -> RiderStatus.FALLING_BEHIND
+        // Visible while separation is being watched, and also whenever a question is still
+        // outstanding: if we asked a rider whether they were all right and they have not
+        // answered, pausing the ride must not turn their marker green.
+        track.alerted && (roomState.separationAlertsActive || track.promptedAt != null) ->
+            RiderStatus.FALLING_BEHIND
         stationary -> RiderStatus.STOPPED
         else -> RiderStatus.ACTIVE
     }

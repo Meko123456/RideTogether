@@ -635,4 +635,136 @@ class AlertEngineTest {
             "we genuinely do not know what happened, and must not claim we do: $alerts",
         )
     }
+
+    // ------------------------------------------------- pausing (issue #7)
+
+    @Test
+    fun `pausing a ride does not silence an unanswered question`() {
+        // The reason the flag had to be split. A rider stops, is asked whether they are all
+        // right, does not answer -- and then the group pauses. Under one coarse "alerts active"
+        // switch the escalation died with the pause, which is backwards: pausing should quieten
+        // the noisy alert, not the one that matters.
+        val engine = AlertEngine()
+        var at = warmUp(engine)
+        val riderPos = 3_120.0
+        var leaderPos = 3_220.0
+
+        val riding = mutableListOf<Alert>()
+        repeat(20) {
+            riding += engine.assess(tick(at, leaderPos, riderPos, riderSpeed = 0f)).alerts
+            leaderPos += 100.0
+            at += 5.seconds
+        }
+        assertTrue(
+            riding.filterIsInstance<Alert.FallingBehind>().isNotEmpty(),
+            "the rider should have been asked while the ride was running: $riding",
+        )
+
+        val paused = mutableListOf<Alert>()
+        repeat(30) {
+            paused += engine.assess(
+                tick(at, leaderPos, riderPos, riderSpeed = 0f, state = RoomState.PAUSED),
+            ).alerts
+            leaderPos += 100.0
+            at += 5.seconds
+        }
+        assertTrue(
+            paused.filterIsInstance<Alert.PossibleIncident>().isNotEmpty(),
+            "an unanswered prompt must keep escalating through a pause: $paused",
+        )
+        assertTrue(
+            paused.filterIsInstance<Alert.FallingBehind>().isEmpty(),
+            "but no *new* separation alert while paused: $paused",
+        )
+    }
+
+    @Test
+    fun `an outstanding question keeps the rider flagged once the ride pauses`() {
+        val engine = AlertEngine()
+        var at = warmUp(engine)
+        val riderPos = 3_120.0
+        var leaderPos = 3_220.0
+        repeat(20) {
+            engine.assess(tick(at, leaderPos, riderPos, riderSpeed = 0f))
+            leaderPos += 100.0
+            at += 5.seconds
+        }
+
+        val paused = engine.assess(
+            tick(at, leaderPos, riderPos, riderSpeed = 0f, state = RoomState.PAUSED),
+        )
+        val assessment = paused.assessments.first { it.riderId == rider.riderId }
+        assertTrue(assessment.awaitingResponse, "the question is still outstanding")
+        assertEquals(
+            RiderStatus.FALLING_BEHIND,
+            assessment.status,
+            "a rider we asked about and never heard from must not turn green because someone " +
+                "hit pause",
+        )
+    }
+
+    @Test
+    fun `gap growth during a pause is not banked against the rider on resume`() {
+        // Everyone spreads out around a fuel station, so the gap grows the whole time. If that
+        // growth counted, the first tick after resuming would alert on the rider still queueing
+        // for the pump -- while they are doing nothing wrong.
+        val engine = AlertEngine()
+        var at = warmUp(engine)
+        val riderPos = 3_120.0
+        var leaderPos = 3_220.0
+
+        repeat(40) {
+            engine.assess(tick(at, leaderPos, riderPos, riderSpeed = 0f, state = RoomState.PAUSED))
+            leaderPos += 150.0
+            at += 5.seconds
+        }
+        assertTrue((leaderPos - riderPos) > 1_500.0, "the gap must already be over the threshold")
+
+        // Ride resumes. The gap keeps rising, but for less than the grace period.
+        val justAfterResume = mutableListOf<Alert>()
+        repeat(5) {
+            justAfterResume += engine.assess(tick(at, leaderPos, riderPos, riderSpeed = 0f)).alerts
+            leaderPos += 150.0
+            at += 5.seconds
+        }
+        assertTrue(
+            justAfterResume.filterIsInstance<Alert.FallingBehind>().isEmpty(),
+            "the grace period must start again on resume, not carry over: $justAfterResume",
+        )
+
+        // Once the gap has been growing for a full grace period *while riding*, it does alert --
+        // the suppression is a reset, not a permanent excuse.
+        val later = mutableListOf<Alert>()
+        repeat(12) {
+            later += engine.assess(tick(at, leaderPos, riderPos, riderSpeed = 0f)).alerts
+            leaderPos += 150.0
+            at += 5.seconds
+        }
+        assertTrue(
+            later.filterIsInstance<Alert.FallingBehind>().isNotEmpty(),
+            "a gap that keeps growing after the resume is still a real fallback: $later",
+        )
+    }
+
+    @Test
+    fun `nobody is reported as losing signal in the lobby`() {
+        // In the lobby nobody is publishing a position yet, so "signal lost" would be announcing
+        // a problem that does not exist.
+        val engine = AlertEngine()
+        val lobby = mutableListOf<Alert>()
+        lobby += engine.assess(tick(t0, 0.0, 0.0, state = RoomState.LOBBY)).alerts
+        lobby += engine.assess(
+            tick(t0 + 60.seconds, 0.0, 0.0, state = RoomState.LOBBY, includeRider = false),
+        ).alerts
+        assertTrue(lobby.isEmpty(), "no alerts before the ride starts: $lobby")
+
+        // The same silence once the ride is running *is* worth reporting.
+        val riding = engine.assess(
+            tick(t0 + 120.seconds, 0.0, 0.0, state = RoomState.RIDING, includeRider = false),
+        ).alerts
+        assertTrue(
+            riding.filterIsInstance<Alert.SignalLost>().isNotEmpty(),
+            "the gate is a room-state check, not a removal: $riding",
+        )
+    }
 }

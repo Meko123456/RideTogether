@@ -19,8 +19,24 @@ enum class RoomState {
     /** True when members should be publishing their location. */
     val sharesLocation: Boolean get() = this == RIDING || this == PAUSED
 
-    /** Fallback alerts are suppressed while paused (spec 2.3.6) and outside a ride. */
-    val alertsActive: Boolean get() = this == RIDING
+    /**
+     * Separation ("falling behind") alerts, which are a RIDING-only concern: a paused group is
+     * *supposed* to spread out around a fuel station, so gap alerts there are pure noise
+     * (spec 2.3.6).
+     */
+    val separationAlertsActive: Boolean get() = this == RIDING
+
+    /**
+     * Safety monitoring — an unanswered "all good?", a possible incident, a phone going quiet.
+     * Live wherever the group is still sharing location, **PAUSED included**: a rider can come
+     * off on the way to the pumps, and a group that stops for fuel has not stopped caring.
+     *
+     * This is deliberately a second flag rather than a reuse of [separationAlertsActive]. One
+     * coarse "alerts active" switch meant pausing a ride silenced crash detection along with the
+     * gap alerts, which inverts the priority: the noisy alert is the one that should go quiet,
+     * and the one that matters is the one that must not.
+     */
+    val safetyAlertsActive: Boolean get() = sharesLocation
 }
 
 /**
