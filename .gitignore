@@ -1,0 +1,22 @@
+*.iml
+.gradle
+local.properties
+.idea/
+.kotlin/
+.DS_Store
+build/
+/captures
+.externalNativeBuild
+.cxx
+
+# Signing
+*.jks
+*.keystore
+
+# Release artefacts built locally
+/*.apk
+/*.idsig
+
+# Firebase config — never commit (hard rule)
+google-services.json
+GoogleService-Info.plist
