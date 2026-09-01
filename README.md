@@ -38,10 +38,11 @@ or location permission exists.
 | Live map (MapLibre + OSM) | ⬜ next |
 | Foreground-service location + adaptive intervals | ⬜ next |
 | Realtime sync (behind a `RealtimeClient` interface) | ⬜ |
+| Crash detection (pure detector + countdown; sensor source pending) | 🟡 core done |
 | Quick messages + TTS through a helmet headset | ⬜ |
 | iOS app | ⬜ phase 2 |
 
-84 tests, all in `:shared` — the engine is driven by synthetic GPS traces, so the interesting
+96 tests, all in `:shared` — the engine is driven by synthetic GPS traces, so the interesting
 logic is covered without a device.
 
 ## Architecture
@@ -52,6 +53,7 @@ shared/      Kotlin Multiplatform, no platform deps in the core
              RiderPresence, RideEvent, JoinCode
   room/      room lifecycle + membership state machine
   alerts/    fallback / separation detection engine (pure, trace-tested)
+  crash/     crash detection behind an interface, deliberately unable to reach alerts/
 androidApp/  Compose UI, foreground-service location, notifications
 ```
 
@@ -69,6 +71,13 @@ There is nothing to configure yet — the core builds and tests with no accounts
 
 ```sh
 ./gradlew :shared:testAndroidHostTest :androidApp:assembleDebug
+```
+
+The same suite runs on Kotlin/Native, which is how "no platform dependencies" stays true rather
+than aspirational (needs macOS + Xcode):
+
+```sh
+./gradlew :shared:iosSimulatorArm64Test
 ```
 
 When realtime sync lands it will need a Firebase project of your own. `google-services.json`

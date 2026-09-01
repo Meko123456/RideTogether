@@ -228,6 +228,34 @@ exists so that swap does not reach the engine.
 
 ---
 
+## 14. Crash detection is a separate signal hierarchy, not an `Alert`
+
+**Spec §2.5** asks for crash detection kept isolated and pluggable.
+
+**Code:** `crash/` has its own `CrashSignal` hierarchy and its own `CrashDetector` interface, and
+nothing in `alerts/` can reach it.
+
+**Why:** "the detector must never be able to fire from the alert engine's path" is only a comment
+if the two share a type. Because `CrashSignal` and `Alert` are unrelated sealed hierarchies, the
+alert engine literally cannot construct a crash alarm and the detector cannot construct a
+separation alert — the compiler enforces the isolation the spec asks for.
+
+`DisabledCrashDetector` exists for the same reason: "detection off" has to be a real object that a
+one-line substitution installs, not a boolean threaded through every call site. A detector that
+fires wrongly is worse than no detector, so switching it off must be trivial.
+
+The detector requires an impact spike, **then** a large orientation change, **then** stillness —
+in that order, within seconds, and only while the rider was actually riding. Each signal alone has
+a boring explanation (pothole, phone out of a pocket, red light), and the same three signals in
+the *wrong* order are a fuel stop. The impact threshold is set at ~4 g rather than what a crash
+really measures, because phone accelerometers commonly clip around 8 g: a threshold set to the
+physical truth would never be reached on the hardware in the rider's pocket.
+
+And the countdown is the actual safety valve. The detector is *allowed* to be wrong, because being
+wrong costs one tap — which is what makes it acceptable to arm at all.
+
+---
+
 ## Smaller notes
 
 - **`mipmap-anydpi-v26` keeps its qualifier** even though `minSdk` is 26 and lint calls it
