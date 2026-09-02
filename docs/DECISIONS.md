@@ -324,6 +324,42 @@ public URL, honest Data safety answers, a foreground-service use case — is wri
 
 ---
 
+## 17. A headset is one channel, so most alerts are never spoken
+
+**Spec §2.4** asks for TTS announcements for every critical alert, because the screen is never
+looked at while moving.
+
+**Code:** `announce/Announcer.kt` speaks a small fraction of what happens, and `RideSession`
+forwards it only the events the alert engine cannot produce.
+
+**Why:** the requirement is easy and the restraint is the whole job. A rider at speed absorbs
+roughly one sentence, and an app that narrates every join, every signal blip and every rider's
+private prompt teaches its user to tune the voice out. Then the announcement that mattered arrives
+and is ignored — the same failure the alert engine is built to avoid, moved into the audio layer.
+
+The rules, each of which is a decision rather than a detail:
+
+- **A fall-behind prompt is spoken only to the rider it is about.** It is the cheap question, and
+  read out to five other riders it becomes an accusation and four interruptions. This is
+  [decision 2](#2-the-separation-rule-is-not-implemented-as-written--this-is-the-important-one)'s
+  cheap-question/expensive-alarm split carried into speech.
+- **Never announce the resolution of something that was never announced.** "Alex is back with the
+  group" means nothing to riders who were never told he had gone, so a rejoin is spoken only if
+  the problem was.
+- **At most one non-critical line per tick.** Everything else is on the screen and in the feed,
+  where it can be read at the next stop.
+- **Criticals ignore the quiet period**, which is affordable precisely because the engine makes
+  them rare.
+- **Joining, leaving and answering are never spoken.** A ride does not need narrating.
+- **Quick messages are rephrased for speech.** "Slow down" on a button becomes "Alex asks the
+  group to slow down": a barked command with no subject is worse than useless through wind noise.
+
+An easy mistake the composition would otherwise make: every alert is *also* written to the room
+feed, so passing both the engine's alerts and the room's events to the announcer says everything
+twice. `RideSession.isAnnounceable` is what stops that, and it is tested.
+
+---
+
 ## Smaller notes
 
 - **`mipmap-anydpi-v26` keeps its qualifier** even though `minSdk` is 26 and lint calls it
