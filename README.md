@@ -67,6 +67,10 @@ Where the code deliberately departs from the spec — the alert rule above all �
 recorded in [`docs/DECISIONS.md`](docs/DECISIONS.md) rather than left for the next reader to
 reverse-engineer.
 
+Location handling is settled in advance rather than discovered at submission time:
+[`docs/PLAY_LOCATION_COMPLIANCE.md`](docs/PLAY_LOCATION_COMPLIANCE.md) explains why the app never
+requests `ACCESS_BACKGROUND_LOCATION`, and what Play requires regardless.
+
 ## Setup
 
 There is nothing to configure yet — the core builds and tests with no accounts or keys:

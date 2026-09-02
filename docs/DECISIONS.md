@@ -293,6 +293,37 @@ describes a ride nobody took.
 
 ---
 
+## 16. No background-location permission, ever
+
+**Spec §3.4** describes location reporting while riding, and issue #12 assumed the Play Store's
+restricted-permission process would be part of shipping.
+
+**Code:** `ACCESS_BACKGROUND_LOCATION` is not requested. A foreground service of type `location`,
+started while the app is on screen, covers the entire need.
+
+**Why:** the restricted permission exists for apps that need a position with no visible activity
+*and* no eligible foreground service. RideTogether always has the service: location matters from
+"Start ride" until the ride ends, and for all of that window a notification is showing. The phone
+can be in a tank bag with the screen off — the service is what keeps the permission valid.
+
+Avoiding it removes the declaration form, the demo video Google usually asks for alongside it, and
+the review round-trips, which was named as the biggest ship risk after alert tuning. It is not a
+loophole; requesting a restricted permission the app does not need would be the mistake.
+
+Two obligations follow, and the location pipeline has to honour both: the service starts **only**
+from a visible activity, and it stops on `ENDED` or on leaving the room — not on a timer.
+
+What would force a reversal: auto-starting a ride from a geofence, keeping a rider on the map after
+they close the app without ending the ride, or waking to check whether the group has moved. Each is
+a small convenience bought with a permanent obligation to justify overnight location access. The
+right answer is to refuse the feature, not to take the permission.
+
+Everything Play still requires — a prominent disclosure before the request, a privacy policy at a
+public URL, honest Data safety answers, a foreground-service use case — is written out in
+[`PLAY_LOCATION_COMPLIANCE.md`](PLAY_LOCATION_COMPLIANCE.md), including the disclosure wording.
+
+---
+
 ## Smaller notes
 
 - **`mipmap-anydpi-v26` keeps its qualifier** even though `minSdk` is 26 and lint calls it
