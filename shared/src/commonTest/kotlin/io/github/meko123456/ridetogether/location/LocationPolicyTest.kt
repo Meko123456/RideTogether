@@ -25,13 +25,13 @@ class LocationPolicyTest {
     // ─────────────────────────────── the kill switch
 
     @Test
-    fun `no interval at all outside a ride, which is the kill switch`() {
+    fun `no interval at all outside a ride - the kill switch`() {
         assertNull(LocationPolicy.intervalFor(conditions(state = RoomState.LOBBY)))
         assertNull(LocationPolicy.intervalFor(conditions(state = RoomState.ENDED)))
     }
 
     @Test
-    fun `a paused ride still reports, because the group is still on the map`() {
+    fun `a paused ride still reports because the group is still on the map`() {
         // Pausing suppresses the nagging, not the sharing — and the rider agreed to be visible
         // for the ride, which is not over.
         assertEquals(
