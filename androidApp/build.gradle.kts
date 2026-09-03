@@ -31,6 +31,15 @@ android {
     buildFeatures {
         compose = true
     }
+
+    lint {
+        // LogNotTimber started firing the moment MapLibre was added, because MapLibre pulls
+        // Timber onto the classpath transitively and the check assumes anything with Timber
+        // available should be using it. This app has no Timber dependency of its own and logs
+        // through android.util.Log deliberately; adopting a logging library to satisfy a hint
+        // about a transitive dependency would be the tail wagging the dog.
+        disable += "LogNotTimber"
+    }
 }
 
 dependencies {
