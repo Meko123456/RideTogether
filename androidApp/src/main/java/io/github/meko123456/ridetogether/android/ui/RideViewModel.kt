@@ -21,6 +21,7 @@ import io.github.meko123456.ridetogether.summary.RideSummariser
 import io.github.meko123456.ridetogether.summary.TracePoint
 import io.github.meko123456.ridetogether.android.crash.CrashMonitor
 import io.github.meko123456.ridetogether.crash.CrashSignal
+import io.github.meko123456.ridetogether.alerts.RiderAssessment
 import io.github.meko123456.ridetogether.alerts.RiderSample
 import io.github.meko123456.ridetogether.realtime.InMemoryRealtimeClient
 import io.github.meko123456.ridetogether.realtime.RealtimeClient
@@ -84,7 +85,12 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
     private val trace = mutableListOf<TracePoint>()
 
     /** Everyone's latest position, straight from the client — the alert engine's input. */
-    private var latestPositions: Map<String, RiderSample> = emptyMap()
+    var positions by mutableStateOf<Map<String, RiderSample>>(emptyMap())
+        private set
+
+    /** What the engine believes about each rider, for the map's colours and the rider list. */
+    var assessments by mutableStateOf<List<RiderAssessment>>(emptyList())
+        private set
 
     /** Finished rides, newest first. */
     var rides by mutableStateOf<List<StoredRide>>(emptyList())
@@ -313,7 +319,7 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
                 trace += TracePoint(own.at, own.location, own.speedMps?.toDouble())
             }
         }
-        latestPositions = positions
+        this.positions = positions
         tickSession(emptyList())
     }
 
@@ -435,12 +441,13 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
                 now = Clock.System.now(),
                 roomState = current.state,
                 members = current.members,
-                samples = latestPositions,
+                samples = positions,
                 batteryPercent = null,
                 events = events,
             ),
             nameOf = { id -> current.member(id)?.displayName ?: "A rider" },
         )
+        assessments = result.assessments
         speaker.speak(result.announcements)
         if (result.pendingAnnouncement && !followUpScheduled) {
             followUpScheduled = true

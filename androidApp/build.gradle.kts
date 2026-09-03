@@ -44,6 +44,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.play.services.location)
+    implementation(libs.maplibre)
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.junit)

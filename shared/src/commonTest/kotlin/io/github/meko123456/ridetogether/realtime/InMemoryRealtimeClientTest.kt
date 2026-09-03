@@ -6,6 +6,7 @@ import io.github.meko123456.ridetogether.model.LatLng
 import io.github.meko123456.ridetogether.model.Member
 import io.github.meko123456.ridetogether.model.QuickMessage
 import io.github.meko123456.ridetogether.model.RideEvent
+import io.github.meko123456.ridetogether.model.Role
 import io.github.meko123456.ridetogether.model.Room
 import io.github.meko123456.ridetogether.model.RoomState
 import kotlinx.coroutines.flow.first
@@ -40,6 +41,17 @@ class InMemoryRealtimeClientTest {
         assertEquals(me, room.leaderId)
         assertEquals(listOf(me), room.members.map { it.riderId })
         assertEquals(RoomState.LOBBY, room.state)
+    }
+
+    @Test
+    fun `the creator can actually control the ride they created`() = runTest {
+        // Regression. leaderId was set but the *member* carried the default RIDER role, and every
+        // permission check goes through the member's role — so the state machine refused to let a
+        // rider start their own ride with NOT_PERMITTED, which was the correct answer to the wrong
+        // data. Only visible by running the app: the room simply stayed in the lobby.
+        val room = requireNotNull(client().createRoom("Ride", code, t0).valueOrNull)
+        assertEquals(Role.LEADER, room.roleOf(me))
+        assertTrue(room.roleOf(me)?.canControlRoom == true)
     }
 
     @Test

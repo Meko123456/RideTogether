@@ -4,6 +4,7 @@ import io.github.meko123456.ridetogether.alerts.RiderSample
 import io.github.meko123456.ridetogether.model.JoinCode
 import io.github.meko123456.ridetogether.model.Member
 import io.github.meko123456.ridetogether.model.RideEvent
+import io.github.meko123456.ridetogether.model.Role
 import io.github.meko123456.ridetogether.model.Room
 import io.github.meko123456.ridetogether.model.RoomState
 import io.github.meko123456.ridetogether.model.Visibility
@@ -62,7 +63,11 @@ class InMemoryRealtimeClient(
             maxRiders = Room.MAX_RIDERS,
             state = RoomState.LOBBY,
             leaderId = selfId,
-            members = listOf(Member(riderId = selfId, displayName = "You")),
+            // Role.LEADER, not the default RIDER: leaderId alone is not enough, because every
+            // permission check goes through the *member's* role. Getting this wrong meant the
+            // creator of a ride could not start it — the state machine refused with
+            // NOT_PERMITTED, which is exactly right given what it was told.
+            members = listOf(Member(riderId = selfId, displayName = "You", role = Role.LEADER)),
             createdAt = now,
         )
         flowFor(room.id).value = room

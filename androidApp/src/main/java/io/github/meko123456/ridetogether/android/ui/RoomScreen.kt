@@ -28,6 +28,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.meko123456.ridetogether.alerts.RiderAssessment
+import io.github.meko123456.ridetogether.alerts.RiderSample
+import io.github.meko123456.ridetogether.android.map.RiderMap
 import io.github.meko123456.ridetogether.android.history.StoredRide
 import io.github.meko123456.ridetogether.crash.CrashSignal
 import io.github.meko123456.ridetogether.model.Member
@@ -61,6 +64,9 @@ fun RoomScreen(
     onSimulateMessage: (QuickMessage) -> Unit,
     summary: StoredRide?,
     onDismissSummary: () -> Unit,
+    positions: Map<String, RiderSample>,
+    assessments: List<RiderAssessment>,
+    selfId: String,
     crashSignal: CrashSignal?,
     onCancelCrash: () -> Unit,
     onAcknowledgeCrash: () -> Unit,
@@ -118,6 +124,19 @@ fun RoomScreen(
 
         summary?.let { finished ->
             RideSummaryCard(ride = finished, onDismiss = onDismissSummary, onShare = onShare)
+        }
+
+        // The map only exists while the ride does, which is the same rule as the location
+        // collection behind it: no ride, nothing to draw and nothing being collected.
+        if (room.state.sharesLocation) {
+            Card {
+                RiderMap(
+                    positions = positions,
+                    assessments = assessments,
+                    selfId = selfId,
+                    modifier = Modifier.fillMaxWidth().height(260.dp),
+                )
+            }
         }
 
         StatusCard(room)

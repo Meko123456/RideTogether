@@ -8,6 +8,7 @@ composeBom = "2026.06.01"
 activityCompose = "1.13.0"
 lifecycle = "2.10.0"
 playServicesLocation = "21.4.0"
+maplibre = "11.8.1"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
@@ -20,6 +21,7 @@ compose-material-icons-core = { module = "androidx.compose.material:material-ico
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
+maplibre = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre" }
 # kotlin("test") needs the standalone Kotlin plugin, which AGP 9's built-in Kotlin replaces.
 kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 junit = { module = "junit:junit", version = "4.13.2" }
