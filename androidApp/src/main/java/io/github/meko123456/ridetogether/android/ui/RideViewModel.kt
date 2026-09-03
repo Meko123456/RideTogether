@@ -5,6 +5,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import androidx.lifecycle.viewModelScope
 import io.github.meko123456.ridetogether.model.JoinCode
 import io.github.meko123456.ridetogether.android.location.RideLocation
 import io.github.meko123456.ridetogether.android.speech.RideSpeaker
@@ -44,6 +47,9 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
     private val rooms = mutableMapOf<String, Room>()
 
     private val session = RideSession(selfId = riderId)
+
+    /** Guards against stacking follow-up ticks when several events arrive together. */
+    private var followUpScheduled = false
     private val speaker = RideSpeaker(application).also { it.configure() }
 
     /** The append-only ride log (spec 2.4). Newest first, because that is how it is read. */
@@ -291,20 +297,42 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
      * incoming positions, so nothing changes unless this app changed it.
      */
     private fun record(event: RideEvent) {
-        val current = room ?: return
         feed = (listOf(event) + feed).take(MAX_FEED)
+        tickSession(listOf(event))
+    }
+
+    /**
+     * Runs one session tick and speaks whatever comes out.
+     *
+     * Called after anything that could produce an announcement rather than on a timer: without the
+     * realtime layer there are no incoming positions, so nothing changes unless this app changed
+     * it. The exception is a held line — the announcer keeps one back while the channel is busy and
+     * has no clock of its own, so when it says something is pending we come back once the quiet
+     * period has passed. Without that the deferral would wait for whatever event happened to
+     * arrive next, which on a quiet ride could be minutes.
+     */
+    private fun tickSession(events: List<RideEvent>) {
+        val current = room ?: return
         val result = session.tick(
             SessionTick(
-                now = event.at,
+                now = Clock.System.now(),
                 roomState = current.state,
                 members = current.members,
                 samples = RideLocation.own.value?.let { mapOf(riderId to it) } ?: emptyMap(),
                 batteryPercent = null,
-                events = listOf(event),
+                events = events,
             ),
             nameOf = { id -> current.member(id)?.displayName ?: "A rider" },
         )
         speaker.speak(result.announcements)
+        if (result.pendingAnnouncement && !followUpScheduled) {
+            followUpScheduled = true
+            viewModelScope.launch {
+                delay(FOLLOW_UP_DELAY_MS)
+                followUpScheduled = false
+                tickSession(emptyList())
+            }
+        }
     }
 
     fun voiceStatus(): String = speaker.status()
@@ -334,6 +362,8 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private companion object {
+        /** A shade past the announcer's quiet period, so the channel is genuinely free. */
+        const val FOLLOW_UP_DELAY_MS = 21_000L
         const val MAX_FEED = 50
         val DEMO_NAMES = listOf("Giorgi", "Nika", "Ana", "Luka", "Saba", "Mari", "Dato", "Tazo", "Vato")
     }

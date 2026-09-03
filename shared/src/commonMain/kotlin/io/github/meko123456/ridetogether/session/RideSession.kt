@@ -45,6 +45,11 @@ data class SessionResult(
      * kill switch, passed straight through from [LocationPolicy].
      */
     val reportingInterval: Duration?,
+    /**
+     * True when an announcement is waiting for the audio channel to free. The caller must tick
+     * again shortly — see [Announcer.hasPending]; nothing here runs on a clock.
+     */
+    val pendingAnnouncement: Boolean = false,
 )
 
 /**
@@ -99,6 +104,7 @@ class RideSession(
             assessments = engineResult.assessments,
             alerts = engineResult.alerts,
             announcements = announcements,
+            pendingAnnouncement = announcer.hasPending,
             reportingInterval = LocationPolicy.intervalFor(
                 LocationConditions(
                     roomState = tick.roomState,

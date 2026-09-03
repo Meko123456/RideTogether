@@ -105,6 +105,15 @@ class Announcer(
         return spoken
     }
 
+    /**
+     * True when a line is waiting for the channel to free.
+     *
+     * Exposed because the caller has to come back: nothing in this class runs on a clock, so a
+     * held line would otherwise wait for whatever event happened to arrive next, which on a quiet
+     * ride could be minutes.
+     */
+    val hasPending: Boolean get() = deferred != null
+
     /** Forget everything — a new ride starts with a clear channel. */
     fun reset() {
         lastSpokeAt = null

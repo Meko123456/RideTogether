@@ -15,8 +15,10 @@ import io.github.meko123456.ridetogether.model.RoomState
 import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -186,6 +188,38 @@ class RideSessionTest {
         )
         assertEquals(1, result.announcements.size)
         assertTrue(result.announcements.single().text.contains("fuel"), result.announcements.toString())
+    }
+
+    @Test
+    fun `a held announcement is reported so the caller knows to come back`() {
+        // Nothing in the session runs on a clock, so a line waiting for the channel would sit
+        // there until some unrelated event arrived. The flag is how the platform layer knows to
+        // schedule one more tick.
+        val session = RideSession(selfId = leaderId)
+        val spoken = session.tick(
+            tick(t0, 100.0, 0.0, events = listOf(RideEvent.Message(t0, me, QuickMessage.FUEL_STOP_NEEDED))),
+            nameOf,
+        )
+        assertEquals(1, spoken.announcements.size)
+        assertFalse(spoken.pendingAnnouncement, "nothing held yet")
+
+        val held = session.tick(
+            tick(
+                t0 + 3.seconds,
+                100.0,
+                0.0,
+                events = listOf(
+                    RideEvent.StateChanged(t0 + 3.seconds, me, RoomState.RIDING, RoomState.PAUSED),
+                ),
+            ),
+            nameOf,
+        )
+        assertTrue(held.announcements.isEmpty(), "inside the quiet period")
+        assertTrue(held.pendingAnnouncement, "and the caller is told to come back")
+
+        val later = session.tick(tick(t0 + 1.minutes, 100.0, 0.0, state = RoomState.PAUSED), nameOf)
+        assertEquals(1, later.announcements.size, "spoken on a later tick with no new events")
+        assertFalse(later.pendingAnnouncement, "and nothing is left waiting")
     }
 
     @Test
