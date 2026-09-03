@@ -269,6 +269,115 @@ class AnnouncerTest {
     }
 
     @Test
+    fun `an important line held by the quiet period is spoken later rather than lost`() {
+        // Found by using the app: pausing a ride a few seconds after a message said nothing at
+        // all. A rider a kilometre back is exactly who needs to hear that the group has stopped.
+        val announcer = announcer()
+        announcer.announce(
+            now = t0,
+            events = listOf(RideEvent.Message(t0, other, QuickMessage.FUEL_STOP_NEEDED)),
+            nameOf = nameOf,
+        )
+        val held = announcer.announce(
+            now = t0 + 5.seconds,
+            events = listOf(RideEvent.StateChanged(t0 + 5.seconds, other, RoomState.RIDING, RoomState.PAUSED)),
+            nameOf = nameOf,
+        )
+        assertTrue(held.isEmpty(), "not while the channel is busy: $held")
+
+        val later = announcer.announce(now = t0 + 1.minutes, nameOf = nameOf)
+        assertEquals(1, later.size, "the held line should arrive once the channel is free")
+        assertTrue(later.single().text.contains("paused"), later.single().text)
+    }
+
+    @Test
+    fun `a routine line held by the quiet period is dropped rather than queued`() {
+        // It was never worth interrupting for, and it is in the feed either way.
+        val announcer = announcer()
+        announcer.announce(
+            now = t0,
+            events = listOf(RideEvent.Message(t0, other, QuickMessage.FUEL_STOP_NEEDED)),
+            nameOf = nameOf,
+        )
+        announcer.announce(
+            now = t0 + 5.seconds,
+            events = listOf(RideEvent.BatterySaver(t0 + 5.seconds, other, 15)),
+            nameOf = nameOf,
+        )
+        val later = announcer.announce(now = t0 + 1.minutes, nameOf = nameOf)
+        assertTrue(later.isEmpty(), "a routine line does not come back: $later")
+    }
+
+    @Test
+    fun `a held line does not jump ahead of something more important`() {
+        val announcer = announcer()
+        announcer.announce(
+            now = t0,
+            events = listOf(RideEvent.Message(t0, other, QuickMessage.FUEL_STOP_NEEDED)),
+            nameOf = nameOf,
+        )
+        announcer.announce(
+            now = t0 + 5.seconds,
+            events = listOf(RideEvent.StateChanged(t0 + 5.seconds, other, RoomState.RIDING, RoomState.PAUSED)),
+            nameOf = nameOf,
+        )
+        // An incident arrives before the channel frees: it is spoken, and the held pause waits.
+        val critical = announcer.announce(
+            now = t0 + 6.seconds,
+            alerts = listOf(Alert.PossibleIncident(other, t0 + 6.seconds, null, t0)),
+            nameOf = nameOf,
+        )
+        assertEquals(Priority.CRITICAL, critical.single().priority)
+
+        val eventually = announcer.announce(now = t0 + 2.minutes, nameOf = nameOf)
+        assertTrue(
+            eventually.singleOrNull()?.text?.contains("paused") == true,
+            "the pause should still arrive afterwards: $eventually",
+        )
+    }
+
+    @Test
+    fun `only the newest held line survives because a stale one is no use`() {
+        val announcer = announcer()
+        announcer.announce(
+            now = t0,
+            events = listOf(RideEvent.Message(t0, other, QuickMessage.FUEL_STOP_NEEDED)),
+            nameOf = nameOf,
+        )
+        announcer.announce(
+            now = t0 + 3.seconds,
+            events = listOf(RideEvent.StateChanged(t0 + 3.seconds, other, RoomState.RIDING, RoomState.PAUSED)),
+            nameOf = nameOf,
+        )
+        announcer.announce(
+            now = t0 + 6.seconds,
+            events = listOf(RideEvent.Message(t0 + 6.seconds, other, QuickMessage.SLOW_DOWN)),
+            nameOf = nameOf,
+        )
+        val later = announcer.announce(now = t0 + 1.minutes, nameOf = nameOf)
+        assertEquals(1, later.size, "one line, not a backlog: $later")
+        assertTrue(later.single().text.contains("slow down"), later.single().text)
+    }
+
+    @Test
+    fun `a reset drops anything that was being held`() {
+        val announcer = announcer()
+        announcer.announce(
+            now = t0,
+            events = listOf(RideEvent.Message(t0, other, QuickMessage.FUEL_STOP_NEEDED)),
+            nameOf = nameOf,
+        )
+        announcer.announce(
+            now = t0 + 5.seconds,
+            events = listOf(RideEvent.StateChanged(t0 + 5.seconds, other, RoomState.RIDING, RoomState.PAUSED)),
+            nameOf = nameOf,
+        )
+        announcer.reset()
+        val later = announcer.announce(now = t0 + 1.minutes, nameOf = nameOf)
+        assertTrue(later.isEmpty(), "a new ride does not inherit the last one's backlog: $later")
+    }
+
+    @Test
     fun `the same line is not repeated while it is still recent`() {
         val announcer = announcer()
         val first = announcer.announce(

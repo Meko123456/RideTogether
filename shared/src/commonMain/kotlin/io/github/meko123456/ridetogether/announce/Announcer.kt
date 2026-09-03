@@ -37,6 +37,16 @@ class Announcer(
     private var lastSpokeAt: Instant? = null
     private val lastByKey = mutableMapOf<String, Instant>()
 
+    /**
+     * An IMPORTANT line the quiet period held back, waiting for the channel.
+     *
+     * Only one, and only IMPORTANT. Found by using the app: pausing a ride eight seconds after a
+     * message said nothing at all, because the line was *dropped* rather than deferred — and a
+     * rider a kilometre back is exactly who needs to hear that the group has stopped. A ROUTINE
+     * line still gets dropped: it was never worth interrupting for, and it is in the feed.
+     */
+    private var deferred: Announcement? = null
+
     /** Riders the group has been told something about, so a resolution makes sense. */
     private val outstanding = mutableSetOf<String>()
 
@@ -50,10 +60,14 @@ class Announcer(
         events: List<RideEvent> = emptyList(),
         nameOf: (String) -> String,
     ): List<Announcement> {
-        val candidates = buildList {
+        val fresh = buildList {
             for (alert in alerts) lineFor(alert, nameOf)?.let(::add)
             for (event in events) lineFor(event, nameOf)?.let(::add)
         }
+        // A held line competes with the new arrivals rather than jumping ahead of them: if
+        // something more important has happened since, that wins.
+        val candidates = (deferred?.let(::listOf) ?: emptyList()) + fresh
+        deferred = null
 
         val spoken = mutableListOf<Announcement>()
 
@@ -69,15 +83,22 @@ class Announcer(
         val rest = candidates
             .filter { it.priority != Priority.CRITICAL }
             .sortedWith(compareBy({ it.priority.ordinal }, { it.at }))
-        for (candidate in rest) {
-            if (isRepeat(candidate, now, config.repeatWindow)) continue
-            // One rule doing both jobs: stop if a critical already took the channel, and stop
-            // after speaking one line of our own. (There used to be a trailing `break` saying the
-            // second half again; mutation testing showed it was unreachable.)
-            if (spoken.isNotEmpty()) break
-            if (!channelIsFree(now)) break
-            spoken += candidate
-            lastByKey[candidate.key] = now
+        val speakable = rest.filterNot { isRepeat(it, now, config.repeatWindow) }
+        if (speakable.isNotEmpty()) {
+            // A critical already took the channel, or the last line is still being heard.
+            if (spoken.isNotEmpty() || !channelIsFree(now)) {
+                // Hold one for the next tick rather than lose it, and only if it is worth
+                // interrupting for later — a ROUTINE line never was, and it is in the feed.
+                // Among equals the *newest* is kept: a stale "the ride is paused" is no use, and
+                // deferral is the only place staleness can creep in.
+                deferred = speakable
+                    .filter { it.priority == Priority.IMPORTANT }
+                    .maxWithOrNull(compareBy({ it.at }, { it.key }))
+            } else {
+                val next = speakable.first()
+                spoken += next
+                lastByKey[next.key] = now
+            }
         }
 
         if (spoken.isNotEmpty()) lastSpokeAt = now
@@ -89,6 +110,7 @@ class Announcer(
         lastSpokeAt = null
         lastByKey.clear()
         outstanding.clear()
+        deferred = null
     }
 
     private fun isRepeat(candidate: Announcement, now: Instant, window: kotlin.time.Duration): Boolean {
