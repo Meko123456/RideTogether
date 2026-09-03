@@ -50,6 +50,7 @@ fun RoomScreen(
     onAddDemoRider: () -> Unit,
     onShare: (String) -> Unit,
     onBack: () -> Unit,
+    locationLine: String,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -92,6 +93,19 @@ fun RoomScreen(
         }
 
         StatusCard(room)
+
+        // What the phone is actually doing, rather than what the room state implies it should be.
+        // The two can disagree — permission refused, the provider still warming up — and a
+        // privacy claim you cannot verify on screen is worth very little.
+        Card {
+            Column(
+                Modifier.fillMaxWidth().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text("Your position", style = MaterialTheme.typography.titleMedium)
+                Text(locationLine, style = MaterialTheme.typography.bodySmall)
+            }
+        }
 
         Card {
             Column(Modifier.padding(vertical = 8.dp)) {

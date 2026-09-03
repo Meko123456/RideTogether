@@ -43,5 +43,6 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.play.services.location)
     debugImplementation(libs.compose.ui.tooling)
 }

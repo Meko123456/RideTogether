@@ -49,6 +49,16 @@ class RideViewModel : ViewModel() {
     var notice by mutableStateOf<String?>(null)
         private set
 
+    /**
+     * True while the disclosure dialog should be on screen. Play requires it *before* the runtime
+     * request, so the permission is never asked for until this has been shown and accepted.
+     */
+    var showLocationDisclosure by mutableStateOf(false)
+        private set
+
+    /** Set when the rider has seen the disclosure and tapped Continue this session. */
+    private var disclosureAccepted = false
+
     /** What [codeInput] resolves to after Crockford normalisation, or null while it isn't a code. */
     val resolvedCode: JoinCode? get() = JoinCode.parseOrNull(codeInput)
 
@@ -65,6 +75,38 @@ class RideViewModel : ViewModel() {
 
     fun consumeNotice() {
         notice = null
+    }
+
+    /**
+     * Called when a ride is about to start and location is not yet granted. Returns true when the
+     * caller should show the disclosure first rather than requesting the permission.
+     */
+    fun needsDisclosure(permissionGranted: Boolean): Boolean =
+        !permissionGranted && !disclosureAccepted
+
+    fun requestDisclosure() {
+        showLocationDisclosure = true
+    }
+
+    fun onDisclosureAccepted() {
+        disclosureAccepted = true
+        showLocationDisclosure = false
+    }
+
+    fun onDisclosureDeclined() {
+        showLocationDisclosure = false
+        // Not a dead end: the ride still works, the rider simply is not on the map.
+        notice = "The ride will run without your position on the map. You can allow location later."
+    }
+
+    /**
+     * Approximate location is not a lesser version of what this app needs — it is unusable. An
+     * error of a kilometre or more says nothing about a 1.5 km gap, so the honest response is to
+     * say so rather than draw a marker that is wrong by more than the thing being measured.
+     */
+    fun onApproximateLocationOnly() {
+        notice = "Approximate location is not accurate enough to see the group. " +
+            "Choose Precise in Android's location settings for RideTogether."
     }
 
     /**

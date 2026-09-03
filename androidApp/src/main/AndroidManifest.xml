@@ -1,6 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!--
+      Location while the ride is running, and nothing more.
+
+      ACCESS_BACKGROUND_LOCATION is deliberately absent: the ride runs in a foreground service of
+      type "location" started from a visible activity, which covers the whole need on the
+      while-in-use grant. Requesting the restricted permission would mean a Play declaration form
+      and a demo video for capability the app does not use. See docs/PLAY_LOCATION_COMPLIANCE.md.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!--
+      Declared because Android 12+ requires it alongside FINE: the system dialog offers the rider
+      "Precise" or "Approximate", and an app that declares only FINE has its request refused when
+      they choose Approximate. The app cannot *use* approximate location — a 1-3 km error tells
+      you nothing about a 1.5 km gap — so it asks for both, and says so plainly when only the
+      approximate grant comes back rather than silently drawing nonsense on the map.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -32,5 +53,9 @@
                 <data android:scheme="ridetogether" android:host="join" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".location.RideLocationService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
     </application>
 </manifest>
