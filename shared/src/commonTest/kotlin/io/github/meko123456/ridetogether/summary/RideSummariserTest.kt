@@ -180,6 +180,35 @@ class RideSummariserTest {
     }
 
     @Test
+    fun `one moving segment among stationary ones is not smoothed away`() {
+        // The second half of the impossible-summary bug. Distance came from the single segment
+        // where both speed sources agreed, but the max-speed median filter averaged that segment
+        // against its stationary neighbours and returned ~0 — so the reported top speed was below
+        // the average it was computed alongside.
+        var at = t0
+        val trace = mutableListOf<TracePoint>()
+        var position = 0.0
+        repeat(3) {
+            trace += TracePoint(at, east(position), 0.2)
+            at += 30.seconds
+        }
+        // One genuine 30-second move at 6 m/s.
+        position += 180.0
+        trace += TracePoint(at, east(position), 6.0)
+        at += 30.seconds
+        repeat(3) {
+            trace += TracePoint(at, east(position), 0.2)
+            at += 30.seconds
+        }
+
+        val rider = summariser.summarise("room", mapOf("alex" to trace)).riders.single()
+        val average = requireNotNull(rider.averageMovingSpeedMps)
+        val top = requireNotNull(rider.maxSpeedMps)
+        assertTrue(top >= average - 0.1, "top $top must not be below the average $average")
+        assertClose(6.0, top, 0.5, "top speed")
+    }
+
+    @Test
     fun `a teleporting fix does not add distance`() {
         val trace = steady(speed = 20.0, seconds = 60).toMutableList()
         // One fix 40 km away, then straight back. Taken literally this adds 80 km.

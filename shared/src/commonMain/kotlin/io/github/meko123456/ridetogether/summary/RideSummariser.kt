@@ -85,9 +85,6 @@ class RideSummariser(private val config: SummaryConfig = SummaryConfig()) {
                 continue
             }
 
-            // The reported speed is still preferred for the max-speed series, where an
-            // instantaneous figure is exactly what is wanted.
-            speeds += current.speedMps ?: implied
 
             // Moving only when *both* sources agree, because each lies in a different situation
             // and a real device found both:
@@ -111,6 +108,13 @@ class RideSummariser(private val config: SummaryConfig = SummaryConfig()) {
                 stoppedDuration += dt
                 currentStop += dt
             } else {
+                // The speed series is built from moving segments only. Including stopped ones
+                // diluted it: a lone moving segment among stationary neighbours was smoothed away
+                // by the median filter, so the top speed came out *below* the average — which is
+                // how a real trace ended up reporting an average of 4 km/h and a top of 1 km/h.
+                // The reported speed is still preferred, since an instantaneous figure is what a
+                // top speed wants.
+                speeds += reported ?: implied
                 distance += step
                 movingDuration += dt
                 if (currentStop >= config.minStopDuration) stopCount++
