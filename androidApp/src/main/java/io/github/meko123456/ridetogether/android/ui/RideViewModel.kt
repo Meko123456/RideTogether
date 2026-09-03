@@ -21,11 +21,15 @@ import io.github.meko123456.ridetogether.summary.RideSummariser
 import io.github.meko123456.ridetogether.summary.TracePoint
 import io.github.meko123456.ridetogether.android.crash.CrashMonitor
 import io.github.meko123456.ridetogether.crash.CrashSignal
+import io.github.meko123456.ridetogether.alerts.RiderSample
+import io.github.meko123456.ridetogether.realtime.InMemoryRealtimeClient
+import io.github.meko123456.ridetogether.realtime.RealtimeClient
+import io.github.meko123456.ridetogether.realtime.RealtimeError
+import io.github.meko123456.ridetogether.realtime.RealtimeResult
+import kotlinx.coroutines.Job
 import io.github.meko123456.ridetogether.model.Member
-import io.github.meko123456.ridetogether.model.Role
 import io.github.meko123456.ridetogether.model.Room
 import io.github.meko123456.ridetogether.model.RoomState
-import io.github.meko123456.ridetogether.model.Visibility
 import io.github.meko123456.ridetogether.room.JoinOutcome
 import io.github.meko123456.ridetogether.room.JoinPolicy
 import io.github.meko123456.ridetogether.room.JoinRefusal
@@ -41,16 +45,28 @@ import kotlin.random.Random
  * join is allowed, what a code resolves to — is delegated to `:shared`, which is the module the
  * tests cover. This class only holds the current room and turns rejections into sentences.
  *
- * Rooms live in memory for now. The realtime layer (issue #10) replaces [rooms] with Firebase
- * behind a `RealtimeClient` interface; until then a code resolves only against rides created on
- * this device, which is enough to exercise the real join path end to end.
+ * Everything to do with rooms now goes through [RealtimeClient]. Today that is the in-memory
+ * implementation, so a code still only resolves against rides created on this device — but the
+ * *shape* is the real one: rooms arrive as a flow, positions arrive from the client rather than
+ * straight off the phone's own sensor, and writes can fail with a reason. Swapping Firebase in
+ * (#10) changes the construction of `client` and nothing in this class.
  */
 class RideViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Stands in for the signed-in rider until accounts land. */
     private val riderId = "me"
 
-    private val rooms = mutableMapOf<String, Room>()
+    /**
+     * The backend. In-memory for now — see #10. Held as the interface type deliberately, so
+     * nothing here can reach for a capability the real implementation will not have.
+     */
+    private val client: RealtimeClient = InMemoryRealtimeClient(selfId = riderId)
+
+    /** Only the demo affordances need the concrete type, and only to fake other riders. */
+    private val fakeOthers: InMemoryRealtimeClient? get() = client as? InMemoryRealtimeClient
+
+    private var roomWatch: Job? = null
+    private var positionWatch: Job? = null
 
     private val session = RideSession(selfId = riderId)
 
@@ -66,6 +82,9 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
      * thing worth keeping (see docs/PRIVACY.md).
      */
     private val trace = mutableListOf<TracePoint>()
+
+    /** Everyone's latest position, straight from the client — the alert engine's input. */
+    private var latestPositions: Map<String, RiderSample> = emptyMap()
 
     /** Finished rides, newest first. */
     var rides by mutableStateOf<List<StoredRide>>(emptyList())
@@ -90,15 +109,6 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
                         record(RideEvent.PossibleIncident(signal.at, riderId, signal.location))
                     }
                     else -> Unit
-                }
-            }
-        }
-        // Collect this phone's own fixes while a ride is running. The service decides what is
-        // worth publishing; this only decides what is worth remembering.
-        viewModelScope.launch {
-            RideLocation.own.collect { sample ->
-                if (sample != null && room?.state?.sharesLocation == true) {
-                    trace += TracePoint(sample.at, sample.location, sample.speedMps?.toDouble())
                 }
             }
         }
@@ -203,20 +213,16 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
 
     fun createRide() {
         val code = JoinCode.generate { bound -> Random.nextInt(bound) }
-        val created = Room(
-            id = "room-${code.value}",
-            code = code,
-            name = rideName.trim().ifBlank { "Ride" },
-            visibility = Visibility.INVITE_ONLY,
-            maxRiders = Room.MAX_RIDERS,
-            state = RoomState.LOBBY,
-            leaderId = riderId,
-            members = listOf(Member(riderId = riderId, displayName = "You", role = Role.LEADER)),
-            createdAt = Clock.System.now(),
-        )
-        rooms[code.value] = created
-        room = created
-        rideName = ""
+        val name = rideName.trim().ifBlank { "Ride" }
+        viewModelScope.launch {
+            when (val result = client.createRoom(name, code, Clock.System.now())) {
+                is RealtimeResult.Success -> {
+                    rideName = ""
+                    watch(result.value.id)
+                }
+                is RealtimeResult.Failure -> notice = describe(result.error)
+            }
+        }
     }
 
     fun joinByCode() {
@@ -224,31 +230,91 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
             notice = "A ride code is ${JoinCode.LENGTH} characters — digits and letters, no I, L, O or U."
             return
         }
-        val target = rooms[code.value] ?: run {
-            notice = "No ride found for ${code.value}. Codes resolve over the network, which isn't " +
-                "wired up yet — for now you can reopen a ride created on this phone."
-            return
-        }
-        when (val outcome = JoinPolicy.evaluate(target, riderId, Clock.System.now())) {
-            JoinOutcome.Admitted -> {
-                val joined = target.copy(
-                    members = target.members + Member(riderId = riderId, displayName = "You"),
-                )
-                save(joined)
-                notice = "Joined ${joined.name}."
+        viewModelScope.launch {
+            when (val found = client.findRoom(code)) {
+                is RealtimeResult.Failure -> notice = describe(found.error)
+                is RealtimeResult.Success -> {
+                    val target = found.value
+                    if (target == null) {
+                        notice = "No ride found for ${code.value}. Codes resolve over the network, " +
+                            "which isn't wired up yet — for now you can reopen a ride created on this phone."
+                        return@launch
+                    }
+                    val joined = client.join(
+                        roomId = target.id,
+                        member = Member(riderId = riderId, displayName = "You"),
+                        now = Clock.System.now(),
+                    )
+                    when (joined) {
+                        is RealtimeResult.Success -> {
+                            watch(joined.value.id)
+                            codeInput = ""
+                            notice = "Joined ${joined.value.name}."
+                        }
+                        is RealtimeResult.Failure -> notice = describe(joined.error)
+                    }
+                }
             }
-            JoinOutcome.AwaitingApproval -> notice = "Asked the leader to let you in."
-            JoinOutcome.AlreadyMember -> {
-                room = target
-                notice = "Reopened ${target.name} — ${code.value}."
-            }
-            is JoinOutcome.Refused -> notice = describe(outcome.reason)
         }
-        codeInput = ""
     }
 
     fun leaveRoom() {
+        val current = room
+        roomWatch?.cancel()
+        positionWatch?.cancel()
         room = null
+        feed = emptyList()
+        trace.clear()
+        if (current != null) {
+            viewModelScope.launch { client.leave(current.id, Clock.System.now()) }
+        }
+    }
+
+    /**
+     * Follows one room: its state, and everyone's positions.
+     *
+     * Both arrive as flows from the client rather than being held locally, so the app reacts to a
+     * room changing under it — someone else ending the ride, the room expiring — the same way it
+     * will once those changes come from the network rather than from this phone.
+     */
+    private fun watch(roomId: String) {
+        roomWatch?.cancel()
+        positionWatch?.cancel()
+        roomWatch = viewModelScope.launch {
+            client.observeRoom(roomId).collect { updated ->
+                if (updated == null && room != null) {
+                    notice = "That ride is no longer there."
+                    room = null
+                    return@collect
+                }
+                room = updated
+            }
+        }
+        positionWatch = viewModelScope.launch {
+            client.observePositions(roomId).collect { positions -> onPositions(positions) }
+        }
+        // This phone's own fixes go *to* the client and come back through the flow above, which is
+        // exactly the path they will take once there is a network in between.
+        viewModelScope.launch {
+            RideLocation.own.collect { sample ->
+                val here = room ?: return@collect
+                if (sample != null && here.state.sharesLocation) {
+                    client.publishPosition(here.id, sample)
+                }
+            }
+        }
+    }
+
+    /** Everyone's latest positions: remembered for the summary, and fed to the engine. */
+    private fun onPositions(positions: Map<String, RiderSample>) {
+        val current = room ?: return
+        positions[riderId]?.let { own ->
+            if (current.state.sharesLocation) {
+                trace += TracePoint(own.at, own.location, own.speedMps?.toDouble())
+            }
+        }
+        latestPositions = positions
+        tickSession(emptyList())
     }
 
     /** Runs a lifecycle command through the state machine and reports whatever it decides. */
@@ -266,12 +332,10 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
         )
         when (transition) {
             is RoomTransition.Accepted -> {
-                save(
-                    current.copy(
-                        state = transition.to,
-                        endedAt = if (transition.to == RoomState.ENDED) now else current.endedAt,
-                    ),
-                )
+                viewModelScope.launch {
+                    val result = client.setState(current.id, transition.to, now)
+                    if (result is RealtimeResult.Failure) notice = describe(result.error)
+                }
                 record(RideEvent.StateChanged(now, riderId, transition.from, transition.to))
                 if (transition.to == RoomState.ENDED) {
                     // Nothing should still be talking about a ride that is over.
@@ -291,10 +355,11 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleSweep(targetRiderId: String) {
         val current = room ?: return
         val alreadySweep = current.member(targetRiderId)?.isSweep == true
-        save(
-            current.copy(
-                members = current.members.map { it.copy(isSweep = !alreadySweep && it.riderId == targetRiderId) },
-            ),
+        // Local until the client grows a sweep call: it changes what the alert engine believes
+        // rather than what the backend enforces, so it is not urgent, but it does mean the flag
+        // will not survive a room arriving fresh from the network. Noted rather than hidden.
+        room = current.copy(
+            members = current.members.map { it.copy(isSweep = !alreadySweep && it.riderId == targetRiderId) },
         )
     }
 
@@ -306,15 +371,13 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
         val current = room ?: return
         val id = "demo-${current.members.size}"
         when (val outcome = JoinPolicy.evaluate(current, id, Clock.System.now())) {
-            JoinOutcome.Admitted -> save(
-                current.copy(
-                    members = current.members + Member(
-                        riderId = id,
-                        displayName = DEMO_NAMES[(current.members.size - 1).coerceIn(DEMO_NAMES.indices)],
-                    ),
+            JoinOutcome.Admitted, JoinOutcome.AwaitingApproval -> fakeOthers?.receiveMember(
+                current.id,
+                Member(
+                    riderId = id,
+                    displayName = DEMO_NAMES[(current.members.size - 1).coerceIn(DEMO_NAMES.indices)],
                 ),
             )
-            JoinOutcome.AwaitingApproval -> notice = "They'd be waiting for the leader to approve them."
             JoinOutcome.AlreadyMember -> Unit
             is JoinOutcome.Refused -> notice = describe(outcome.reason)
         }
@@ -372,7 +435,7 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
                 now = Clock.System.now(),
                 roomState = current.state,
                 members = current.members,
-                samples = RideLocation.own.value?.let { mapOf(riderId to it) } ?: emptyMap(),
+                samples = latestPositions,
                 batteryPercent = null,
                 events = events,
             ),
@@ -442,9 +505,12 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
         super.onCleared()
     }
 
-    private fun save(updated: Room) {
-        rooms[updated.code.value] = updated
-        room = updated
+    private fun describe(error: RealtimeError): String = when (error) {
+        RealtimeError.OFFLINE -> "No connection. It will retry."
+        RealtimeError.ROOM_GONE -> "That ride is no longer there."
+        RealtimeError.NOT_PERMITTED -> "That ride would not accept the change."
+        RealtimeError.CODE_TAKEN -> "That code is already in use — try again."
+        RealtimeError.UNKNOWN -> "That did not work."
     }
 
     private fun describe(reason: RoomRejection): String = when (reason) {
