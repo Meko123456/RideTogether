@@ -29,9 +29,14 @@ data class StoredRide(
  * trace — the positions themselves are the sensitive part, they expire with the room by design
  * (see the privacy policy), and a summary is the only thing worth keeping afterwards.
  */
-class RideHistory(context: Context) {
+class RideHistory(private val file: File) {
 
-    private val file = File(context.filesDir, "ride-history.json")
+    /**
+     * The real one. Takes a [File] rather than a Context in its primary constructor so the
+     * persistence — which is where a bug silently loses a rider's history — can be tested without
+     * an emulator.
+     */
+    constructor(context: Context) : this(File(context.filesDir, FILE_NAME))
 
     fun load(): List<StoredRide> {
         val raw = runCatching { file.readText() }.getOrNull()?.takeIf { it.isNotBlank() } ?: return emptyList()
@@ -91,7 +96,7 @@ class RideHistory(context: Context) {
         }
         runCatching {
             // Write beside the target and rename: a kill mid-write must not leave a half file.
-            val temp = File(file.parentFile, "ride-history.json.tmp")
+            val temp = File(file.parentFile, file.name + ".tmp")
             temp.writeText(array.toString())
             temp.renameTo(file)
         }
@@ -99,6 +104,7 @@ class RideHistory(context: Context) {
     }
 
     private companion object {
+        const val FILE_NAME = "ride-history.json"
         const val MAX_RIDES = 100
     }
 }
