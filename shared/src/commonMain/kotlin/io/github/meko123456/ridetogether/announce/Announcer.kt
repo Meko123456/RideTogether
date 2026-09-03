@@ -1,6 +1,7 @@
 package io.github.meko123456.ridetogether.announce
 
 import io.github.meko123456.ridetogether.alerts.Alert
+import io.github.meko123456.ridetogether.crash.CrashSignal
 import io.github.meko123456.ridetogether.model.QuickMessage
 import io.github.meko123456.ridetogether.model.RideEvent
 import io.github.meko123456.ridetogether.model.RoomState
@@ -58,11 +59,13 @@ class Announcer(
         now: Instant,
         alerts: List<Alert> = emptyList(),
         events: List<RideEvent> = emptyList(),
+        crashSignals: List<CrashSignal> = emptyList(),
         nameOf: (String) -> String,
     ): List<Announcement> {
         val fresh = buildList {
             for (alert in alerts) lineFor(alert, nameOf)?.let(::add)
             for (event in events) lineFor(event, nameOf)?.let(::add)
+            for (signal in crashSignals) lineFor(signal)?.let(::add)
         }
         // A held line competes with the new arrivals rather than jumping ahead of them: if
         // something more important has happened since, that wins.
@@ -195,6 +198,41 @@ class Announcer(
         if (riderId !in outstanding) return null
         outstanding -= riderId
         return Announcement(text, Priority.ROUTINE, at, key)
+    }
+
+    /**
+     * The crash detector's own signals.
+     *
+     * These arrive here rather than being spoken directly by the platform layer, so that all the
+     * restraint — priority, the quiet period, not repeating the same line — is decided in one
+     * place. And they arrive at all because of a gap found by using the app: the countdown card
+     * appeared on screen and said nothing, which is useless to a rider who may be lying in a ditch
+     * with the phone in a pocket. **The countdown is the safety valve, and a valve nobody can hear
+     * is not one.**
+     *
+     * Note this does not breach the isolation the crash detector was built with: the requirement
+     * is that a crash alarm can never be raised *from the alert engine's path*, and the announcer
+     * is not the alert engine. It decides what is said, not what is true.
+     */
+    private fun lineFor(signal: CrashSignal): Announcement? = when (signal) {
+        is CrashSignal.CountdownStarted -> Announcement(
+            text = "It looks like you may have come off. Say nothing and the group will be told. " +
+                "Tap I'm fine if you are all right.",
+            priority = Priority.CRITICAL,
+            at = signal.at,
+            key = "crash-countdown",
+        )
+
+        is CrashSignal.CrashConfirmed -> Announcement(
+            text = "The group has been alerted that you may have come off.",
+            priority = Priority.CRITICAL,
+            at = signal.at,
+            key = "crash-confirmed",
+        )
+
+        // Nothing to say: the rider just told the app they were fine, or rode away. Announcing
+        // the cancellation would be talking for the sake of it.
+        is CrashSignal.CountdownCancelled -> null
     }
 
     private fun lineFor(event: RideEvent, nameOf: (String) -> String): Announcement? = when (event) {

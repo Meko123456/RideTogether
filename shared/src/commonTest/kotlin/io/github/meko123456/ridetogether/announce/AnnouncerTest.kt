@@ -182,6 +182,81 @@ class AnnouncerTest {
         assertTrue(second.isEmpty(), "the problem was already closed: $second")
     }
 
+    // ────────────────────────────────── the crash detector
+
+    @Test
+    fun `the crash countdown is spoken because the rider cannot read a screen`() {
+        // The gap a device found: the countdown card appeared and said nothing. A rider who may
+        // have come off is not looking at a phone, so a silent safety valve is not one.
+        val spoken = announcer().announce(
+            now = t0,
+            crashSignals = listOf(
+                io.github.meko123456.ridetogether.crash.CrashSignal.CountdownStarted(
+                    at = t0,
+                    expiresAt = t0 + 30.seconds,
+                ),
+            ),
+            nameOf = nameOf,
+        )
+        assertEquals(Priority.CRITICAL, spoken.single().priority)
+        assertTrue(spoken.single().text.contains("I'm fine"), spoken.single().text)
+    }
+
+    @Test
+    fun `a confirmed crash tells the rider the group knows`() {
+        val spoken = announcer().announce(
+            now = t0,
+            crashSignals = listOf(
+                io.github.meko123456.ridetogether.crash.CrashSignal.CrashConfirmed(
+                    at = t0,
+                    location = null,
+                    impactAt = t0,
+                ),
+            ),
+            nameOf = nameOf,
+        )
+        assertEquals(Priority.CRITICAL, spoken.single().priority)
+        assertTrue(spoken.single().text.contains("alerted"), spoken.single().text)
+    }
+
+    @Test
+    fun `cancelling the countdown is not announced`() {
+        // The rider has just told the app they are fine. Saying so back to them is talking for
+        // the sake of it.
+        val spoken = announcer().announce(
+            now = t0,
+            crashSignals = listOf(
+                io.github.meko123456.ridetogether.crash.CrashSignal.CountdownCancelled(
+                    at = t0,
+                    reason = io.github.meko123456.ridetogether.crash.CancelReason.RIDER,
+                ),
+            ),
+            nameOf = nameOf,
+        )
+        assertTrue(spoken.isEmpty(), "$spoken")
+    }
+
+    @Test
+    fun `a crash countdown is not held back by a message spoken a second earlier`() {
+        val announcer = announcer()
+        announcer.announce(
+            now = t0,
+            events = listOf(RideEvent.Message(t0, other, QuickMessage.FUEL_STOP_NEEDED)),
+            nameOf = nameOf,
+        )
+        val countdown = announcer.announce(
+            now = t0 + 1.seconds,
+            crashSignals = listOf(
+                io.github.meko123456.ridetogether.crash.CrashSignal.CountdownStarted(
+                    at = t0 + 1.seconds,
+                    expiresAt = t0 + 31.seconds,
+                ),
+            ),
+            nameOf = nameOf,
+        )
+        assertEquals(1, countdown.size, "critical lines ignore the quiet period")
+    }
+
     // ────────────────────────────────── the channel
 
     @Test

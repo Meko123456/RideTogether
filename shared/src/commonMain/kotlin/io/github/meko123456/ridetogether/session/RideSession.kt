@@ -11,6 +11,7 @@ import io.github.meko123456.ridetogether.announce.Announcement
 import io.github.meko123456.ridetogether.announce.Announcer
 import io.github.meko123456.ridetogether.location.LocationConditions
 import io.github.meko123456.ridetogether.location.LocationPolicy
+import io.github.meko123456.ridetogether.crash.CrashSignal
 import io.github.meko123456.ridetogether.model.FallbackResponse
 import io.github.meko123456.ridetogether.model.LatLng
 import io.github.meko123456.ridetogether.model.Member
@@ -30,6 +31,12 @@ data class SessionTick(
     val batteryPercent: Int? = null,
     /** Room events since the last tick — quick messages, state changes, battery-saver notices. */
     val events: List<RideEvent> = emptyList(),
+    /**
+     * Crash-detector signals since the last tick. Separate from [events] because they come from a
+     * different source with a different hierarchy — see the crash package — and because a
+     * countdown has to be *spoken*, not just drawn.
+     */
+    val crashSignals: List<CrashSignal> = emptyList(),
 )
 
 /** What the platform layer should do about it. */
@@ -97,6 +104,7 @@ class RideSession(
             // Deliberately not every event: the feed records an event for each alert too, and
             // forwarding both would announce everything twice.
             events = tick.events.filter(::isAnnounceable),
+            crashSignals = tick.crashSignals,
             nameOf = nameOf,
         )
 

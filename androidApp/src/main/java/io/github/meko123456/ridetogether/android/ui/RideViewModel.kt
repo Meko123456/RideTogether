@@ -109,13 +109,19 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             CrashMonitor.signal.collect { signal ->
                 crashSignal = signal
-                when (signal) {
-                    is CrashSignal.CrashConfirmed -> {
-                        // Into the feed and, because it is CRITICAL, straight out of the speaker.
-                        record(RideEvent.PossibleIncident(signal.at, riderId, signal.location))
-                    }
-                    else -> Unit
-                }
+                if (signal == null) return@collect
+                // Through the session, so the announcer decides what is spoken — including the
+                // countdown, which was silent until a run on a device showed the card appearing
+                // and saying nothing. A rider who may have come off cannot read a screen.
+                tickSession(
+                    events = if (signal is CrashSignal.CrashConfirmed) {
+                        listOf(RideEvent.PossibleIncident(signal.at, riderId, signal.location))
+                            .also { feed = (it + feed).take(MAX_FEED) }
+                    } else {
+                        emptyList()
+                    },
+                    crashSignals = listOf(signal),
+                )
             }
         }
     }
@@ -434,7 +440,10 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
      * period has passed. Without that the deferral would wait for whatever event happened to
      * arrive next, which on a quiet ride could be minutes.
      */
-    private fun tickSession(events: List<RideEvent>) {
+    private fun tickSession(
+        events: List<RideEvent>,
+        crashSignals: List<CrashSignal> = emptyList(),
+    ) {
         val current = room ?: return
         val result = session.tick(
             SessionTick(
@@ -444,6 +453,7 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
                 samples = positions,
                 batteryPercent = null,
                 events = events,
+                crashSignals = crashSignals,
             ),
             nameOf = { id -> current.member(id)?.displayName ?: "A rider" },
         )
