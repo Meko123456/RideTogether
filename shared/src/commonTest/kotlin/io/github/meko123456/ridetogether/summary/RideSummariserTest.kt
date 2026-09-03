@@ -124,6 +124,62 @@ class RideSummariserTest {
     }
 
     @Test
+    fun `a phone sitting still does not accumulate a ride out of GPS drift`() {
+        // The bug a real device found. Four fixes thirty seconds apart from a stationary phone,
+        // each drifting ~35 m, produced 105 m of "ride" with an average of 20 km/h and a top
+        // speed of 1 km/h — an average above the maximum, which cannot happen.
+        var at = t0
+        var offset = 0.0
+        val drifting = buildList {
+            repeat(5) { index ->
+                add(TracePoint(at, east(offset), 0.3))
+                offset += if (index % 2 == 0) 35.0 else -33.0
+                at += 30.seconds
+            }
+        }
+        val rider = summariser.summarise("room", mapOf("alex" to drifting)).riders.single()
+
+        assertTrue(rider.distanceMeters < 5.0, "drift is not distance, got ${rider.distanceMeters}")
+        assertTrue(rider.stoppedDuration >= 100.seconds, "it was stopped the whole time")
+        val average = rider.averageMovingSpeedMps
+        val top = rider.maxSpeedMps
+        if (average != null && top != null) {
+            assertTrue(average <= top + 0.1, "average $average cannot exceed top $top")
+        }
+    }
+
+    @Test
+    fun `a trace with no reported speeds is still a ride`() {
+        // Providers do omit speed — older hardware, and the first fix after a cold start. If a
+        // missing reading counted as "not moving", every such ride would come out as zero
+        // distance. Displacement is all there is to go on, so it is enough on its own.
+        var at = t0
+        var position = 0.0
+        val silent = buildList {
+            repeat(60) {
+                add(TracePoint(at, east(position), null))
+                position += 20.0
+                at += 1.seconds
+            }
+        }
+        val rider = summariser.summarise("room", mapOf("alex" to silent)).riders.single()
+        assertClose(1_180.0, rider.distanceMeters, 5.0, "distance")
+        assertTrue(rider.movingDuration >= 55.seconds, "was ${rider.movingDuration}")
+        assertClose(20.0, rider.averageMovingSpeedMps, 1.0, "moving average")
+    }
+
+    @Test
+    fun `an average can never exceed the top speed on a real trace either`() {
+        // The invariant the bug violated, checked on an ordinary ride.
+        val trace = steady(speed = 20.0, seconds = 120) +
+            steady(speed = 8.0, seconds = 60, from = t0 + 120.seconds, startAt = 2_400.0)
+        val rider = summariser.summarise("room", mapOf("alex" to trace)).riders.single()
+        val average = requireNotNull(rider.averageMovingSpeedMps)
+        val top = requireNotNull(rider.maxSpeedMps)
+        assertTrue(average <= top + 0.1, "average $average exceeded top $top")
+    }
+
+    @Test
     fun `a teleporting fix does not add distance`() {
         val trace = steady(speed = 20.0, seconds = 60).toMutableList()
         // One fix 40 km away, then straight back. Taken literally this adds 80 km.

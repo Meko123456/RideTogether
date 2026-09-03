@@ -23,7 +23,12 @@ import kotlin.time.Duration.Companion.ZERO
  * a kilometre through a tunnel. The count of what was thrown away is part of the output, because
  * a trace with dozens of discards should not present itself as precise.
  *
- * **3. Max speed is median-filtered.** The single fastest fix in a trace is almost always noise,
+ * **3. Distance only accumulates while moving.** A phone sitting still drifts tens of metres
+ * between fixes, and counting that drift inflates the ride and — because the average is distance
+ * over *moving* time while the top speed comes from the provider's own figure — can produce an
+ * average higher than the maximum. Found by ending a real ride on a desk.
+ *
+ * **4. Max speed is median-filtered.** The single fastest fix in a trace is almost always noise,
  * and it is also the number a rider is most likely to screenshot. Taking the maximum of a
  * three-point median means a genuine fast section (several consecutive fixes) survives while a
  * lone spike cannot.
@@ -80,20 +85,33 @@ class RideSummariser(private val config: SummaryConfig = SummaryConfig()) {
                 continue
             }
 
-            distance += step
-            // Moving or stopped is decided by *displacement over time*, not by the provider's
-            // reported speed. The two disagree in a case that matters: a rider parked for a
-            // minute whose next fix reports 20 m/s because they have just pulled away. Trusting
-            // that reading books the whole stationary minute as riding, and the moving average
-            // sags for a stop it was supposed to exclude. Displacement cannot lie about having
-            // stayed put. The reported speed is still preferred for the max-speed series, where
-            // an instantaneous figure is exactly what is wanted.
+            // The reported speed is still preferred for the max-speed series, where an
+            // instantaneous figure is exactly what is wanted.
             speeds += current.speedMps ?: implied
 
-            if (implied <= config.stopSpeedMps) {
+            // Moving only when *both* sources agree, because each lies in a different situation
+            // and a real device found both:
+            //
+            //  - Displacement alone counts GPS drift as travel. A phone sitting still wanders
+            //    tens of metres between fixes; over a 30-second interval that is 1.2 m/s, which
+            //    clears any sane speed threshold. It produced a 105 m "ride" with an average of
+            //    20 km/h and a top speed of 1 km/h — an average above the maximum, which cannot
+            //    happen and was the tell.
+            //  - The provider's speed alone books stationary time as riding. A rider parked with
+            //    reporting slowed to once a minute pulls away, and their first fix reads 20 m/s
+            //    with the bike not having moved, so the whole minute counts as movement.
+            //
+            // The conjunction is honest about both: no displacement, no distance; no reported
+            // speed, no distance. Distance accumulates only inside the moving branch.
+            val reported = current.speedMps
+            val movingNow = implied > config.stopSpeedMps &&
+                (reported == null || reported > config.stopSpeedMps)
+
+            if (!movingNow) {
                 stoppedDuration += dt
                 currentStop += dt
             } else {
+                distance += step
                 movingDuration += dt
                 if (currentStop >= config.minStopDuration) stopCount++
                 currentStop = ZERO

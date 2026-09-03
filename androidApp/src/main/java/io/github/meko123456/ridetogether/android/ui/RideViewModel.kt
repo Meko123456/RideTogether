@@ -15,6 +15,10 @@ import io.github.meko123456.ridetogether.model.QuickMessage
 import io.github.meko123456.ridetogether.model.RideEvent
 import io.github.meko123456.ridetogether.session.RideSession
 import io.github.meko123456.ridetogether.session.SessionTick
+import io.github.meko123456.ridetogether.android.history.RideHistory
+import io.github.meko123456.ridetogether.android.history.StoredRide
+import io.github.meko123456.ridetogether.summary.RideSummariser
+import io.github.meko123456.ridetogether.summary.TracePoint
 import io.github.meko123456.ridetogether.model.Member
 import io.github.meko123456.ridetogether.model.Role
 import io.github.meko123456.ridetogether.model.Room
@@ -50,6 +54,37 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Guards against stacking follow-up ticks when several events arrive together. */
     private var followUpScheduled = false
+
+    private val history = RideHistory(application)
+    private val summariser = RideSummariser()
+
+    /**
+     * This ride's positions, kept only until the ride ends and a summary is made from them.
+     * Deliberately never persisted: the trace is the sensitive part, and the summary is the only
+     * thing worth keeping (see docs/PRIVACY.md).
+     */
+    private val trace = mutableListOf<TracePoint>()
+
+    /** Finished rides, newest first. */
+    var rides by mutableStateOf<List<StoredRide>>(emptyList())
+        private set
+
+    /** The summary of the ride that just ended, shown once. */
+    var lastSummary by mutableStateOf<StoredRide?>(null)
+        private set
+
+    init {
+        rides = history.load()
+        // Collect this phone's own fixes while a ride is running. The service decides what is
+        // worth publishing; this only decides what is worth remembering.
+        viewModelScope.launch {
+            RideLocation.own.collect { sample ->
+                if (sample != null && room?.state?.sharesLocation == true) {
+                    trace += TracePoint(sample.at, sample.location, sample.speedMps?.toDouble())
+                }
+            }
+        }
+    }
     private val speaker = RideSpeaker(application).also { it.configure() }
 
     /** The append-only ride log (spec 2.4). Newest first, because that is how it is read. */
@@ -224,6 +259,7 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
                     // Nothing should still be talking about a ride that is over.
                     speaker.stop()
                     session.reset()
+                    finishRide(current)
                 }
             }
             is RoomTransition.Rejected -> notice = describe(transition.reason)
@@ -333,6 +369,27 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
                 tickSession(emptyList())
             }
         }
+    }
+
+    /**
+     * Turns the ride's trace into a summary, stores it, and drops the trace.
+     *
+     * Called on ENDED rather than on leaving the room: leaving is not finishing, and a summary of
+     * a ride you walked away from halfway through would be wrong about the ride.
+     */
+    private fun finishRide(room: Room) {
+        if (trace.size < 2) {
+            trace.clear()
+            return
+        }
+        val summary = summariser.summarise(room.id, mapOf(riderId to trace.toList()))
+        lastSummary = history.save(room.id, room.name, summary)
+        rides = history.load()
+        trace.clear()
+    }
+
+    fun dismissSummary() {
+        lastSummary = null
     }
 
     fun voiceStatus(): String = speaker.status()

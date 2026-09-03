@@ -24,6 +24,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.meko123456.ridetogether.android.history.StoredRide
 import io.github.meko123456.ridetogether.model.JoinCode
 
 /** Start a ride or join one. The two things a rider does in a car park with gloves half on. */
@@ -36,6 +37,7 @@ fun HomeScreen(
     onCodeInputChange: (String) -> Unit,
     onCreateRide: () -> Unit,
     onJoinRide: () -> Unit,
+    rides: List<StoredRide>,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -125,6 +127,8 @@ fun HomeScreen(
                 )
             }
         }
+
+        RideHistoryCard(rides)
 
         Text(
             "Your location is shared with the group only while a ride is running, and stops the " +

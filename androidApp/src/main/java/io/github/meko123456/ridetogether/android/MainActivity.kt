@@ -132,6 +132,7 @@ class MainActivity : ComponentActivity() {
                             onCodeInputChange = vm::onCodeInputChange,
                             onCreateRide = vm::createRide,
                             onJoinRide = vm::joinByCode,
+                            rides = vm.rides,
                             modifier = Modifier.padding(insets),
                         )
                     } else {
@@ -147,6 +148,8 @@ class MainActivity : ComponentActivity() {
                             feed = vm.feed,
                             onSendMessage = vm::send,
                             onSimulateMessage = vm::simulateMessageFromAnother,
+                            summary = vm.lastSummary,
+                            onDismissSummary = vm::dismissSummary,
                             modifier = Modifier.padding(insets),
                         )
                     }

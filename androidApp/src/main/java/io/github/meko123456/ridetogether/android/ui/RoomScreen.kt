@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.meko123456.ridetogether.android.history.StoredRide
 import io.github.meko123456.ridetogether.model.Member
 import io.github.meko123456.ridetogether.model.QuickMessage
 import io.github.meko123456.ridetogether.model.RideEvent
@@ -57,6 +58,8 @@ fun RoomScreen(
     feed: List<RideEvent>,
     onSendMessage: (QuickMessage) -> Unit,
     onSimulateMessage: (QuickMessage) -> Unit,
+    summary: StoredRide?,
+    onDismissSummary: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -96,6 +99,10 @@ fun RoomScreen(
                     Text("Share invite link")
                 }
             }
+        }
+
+        summary?.let { finished ->
+            RideSummaryCard(ride = finished, onDismiss = onDismissSummary, onShare = onShare)
         }
 
         StatusCard(room)
