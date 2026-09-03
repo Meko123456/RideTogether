@@ -37,7 +37,7 @@ or location permission exists.
 | Android app shell (create + join a ride, room controls, invite links) | ✅ |
 | Live map (MapLibre + OSM) | ⬜ next |
 | Foreground-service location + adaptive intervals | ⬜ next |
-| Realtime sync (behind a `RealtimeClient` interface) | ⬜ |
+| Realtime sync — interface + in-memory implementation | 🟡 Firebase pending |
 | Crash detection (pure detector + countdown; sensor source pending) | 🟡 core done |
 | Adaptive location intervals + kill switch | ✅ mutation-tested |
 | Audio-first announcement policy (what is spoken, and what is not) | ✅ mutation-tested |
@@ -46,7 +46,7 @@ or location permission exists.
 | Quick messages + TTS through a helmet headset | ⬜ |
 | iOS app | ⬜ phase 2 |
 
-165 tests, all in `:shared` — the engine is driven by synthetic GPS traces, so the interesting
+188 tests, all in `:shared` — the engine is driven by synthetic GPS traces, so the interesting
 logic is covered without a device.
 
 ## Architecture
@@ -61,6 +61,7 @@ shared/      Kotlin Multiplatform, no platform deps in the core
   location/  adaptive reporting intervals, and the kill switch as a pure rule
   announce/  what a rider actually hears through a helmet -- mostly, what they do not
   session/   the three above composed, so the platform layer stays thin
+  realtime/  the backend boundary, and an in-memory client that doubles as the test double
   summary/   post-ride numbers from a recorded trace (glitch-filtered, moving averages)
 androidApp/  Compose UI, foreground-service location, notifications
 ```

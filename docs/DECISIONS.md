@@ -393,6 +393,46 @@ exceed the maximum, and if it does the estimators have drifted apart again.
 
 ---
 
+## 19. The backend boundary is drawn before the backend exists
+
+**Spec §3.5** describes Firebase Realtime Database sync, and issue #10 is the work of building it.
+
+**Code:** `realtime/RealtimeClient.kt` is the interface, `InMemoryRealtimeClient` is the only
+implementation so far, and it is written in terms of the domain's own types.
+
+**Why:** the alert engine, the announcer, the location policy and the summariser are all pure and
+tested, and the fastest way to lose that is to let a networking library's types reach into the
+modules that decide things — a `DataSnapshot`, a serialisation annotation, a callback shape. Drawn
+in `commonMain`, the boundary keeps Firebase on one side of it.
+
+Three properties the shape has, each taken from what the app already does rather than guessed:
+
+- **Reads are flows, writes are suspend functions.** Every consumer of room state is reactive
+  already, so a poll-shaped API would push the caller back into deciding when to look.
+- **Failures are values, not exceptions.** A connection dropping mid-ride is normal, not
+  exceptional, and each cause needs a different sentence and a different response — so
+  `RealtimeError` is a named enum in the return type rather than an exception thrown past the
+  caller. `OFFLINE` is retryable and momentary; `ROOM_GONE` means stop; `CODE_TAKEN` means
+  generate another and retry.
+- **Positions cross the wire as the domain's `RiderSample`**, so the engine can be fed straight
+  from the network. A translation layer is a place to quietly lose the per-rider reporting interval
+  that staleness detection scales with, which would break signal-loss detection without breaking a
+  build.
+
+`InMemoryRealtimeClient` has two jobs and the second matters more. It lets the app run before
+Firebase exists — the room map that lived inline in the Android view model is now behind the
+interface the real client will implement. And it is the **test double**: a room expiring mid-ride,
+a join refused because the room is full, a code collision, the network dropping, the room vanishing
+under the app — each drivable from a unit test at the exact moment the test chooses, which no
+emulator makes easy.
+
+It applies `JoinPolicy` and `RoomStateMachine` itself rather than assuming the server will. Those
+same rules have to end up in the backend's security rules, and applying them on both sides is what
+stops the two drifting apart — the lesson from SyncBeats, where every room path turned out to be
+writable by any signed-in user because the client was the only thing enforcing anything.
+
+---
+
 ## Smaller notes
 
 - **`mipmap-anydpi-v26` keeps its qualifier** even though `minSdk` is 26 and lint calls it
