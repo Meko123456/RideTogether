@@ -21,6 +21,8 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import io.github.meko123456.ridetogether.alerts.RiderSample
+import io.github.meko123456.ridetogether.android.crash.CrashMonitor
+import io.github.meko123456.ridetogether.android.crash.CrashSensors
 import io.github.meko123456.ridetogether.android.MainActivity
 import io.github.meko123456.ridetogether.location.LocationConditions
 import io.github.meko123456.ridetogether.location.LocationPolicy
@@ -48,6 +50,19 @@ import kotlin.time.Duration
 class RideLocationService : Service() {
 
     private val client by lazy { LocationServices.getFusedLocationProviderClient(this) }
+
+    /**
+     * Crash detection is armed by exactly the same thing as location collection: a ride being in
+     * progress. Hosting the sensors here rather than in their own service means the two can never
+     * disagree about whether a ride is happening.
+     */
+    private val sensors by lazy {
+        CrashSensors(this) {
+            val fix = RideLocation.own.value
+            fix?.location to fix?.speedMps?.toDouble()
+        }
+    }
+    private var sensorsRunning = false
     private var roomState: RoomState = RoomState.RIDING
     private var currentInterval: Duration? = null
     private var lastPublished: LatLng? = null
@@ -87,6 +102,7 @@ class RideLocationService : Service() {
                     return START_NOT_STICKY
                 }
                 RideLocation.setRunning(true)
+                startSensors()
                 requestUpdates()
             }
 
@@ -162,8 +178,27 @@ class RideLocationService : Service() {
         requestUpdates(speedMps = speed)
     }
 
+    private fun startSensors() {
+        if (sensorsRunning) return
+        if (!sensors.available) {
+            Log.w(TAG, "no motion sensors; crash detection is off on this device")
+            return
+        }
+        sensors.start()
+        sensorsRunning = true
+    }
+
+    private fun stopSensors() {
+        if (!sensorsRunning) return
+        sensors.stop()
+        sensorsRunning = false
+        // A ride that is over cannot be crashed out of.
+        CrashMonitor.reset()
+    }
+
     private fun stopCollecting(why: String) {
         Log.i(TAG, "stopping: $why")
+        stopSensors()
         runCatching { client.removeLocationUpdates(callback) }
         currentInterval = null
         lastPublished = null
@@ -174,6 +209,7 @@ class RideLocationService : Service() {
     }
 
     override fun onDestroy() {
+        stopSensors()
         runCatching { client.removeLocationUpdates(callback) }
         RideLocation.setInterval(null)
         RideLocation.setRunning(false)

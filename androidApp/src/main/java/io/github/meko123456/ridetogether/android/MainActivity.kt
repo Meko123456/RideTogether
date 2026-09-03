@@ -150,6 +150,10 @@ class MainActivity : ComponentActivity() {
                             onSimulateMessage = vm::simulateMessageFromAnother,
                             summary = vm.lastSummary,
                             onDismissSummary = vm::dismissSummary,
+                            crashSignal = vm.crashSignal,
+                            onCancelCrash = vm::cancelCrashCountdown,
+                            onAcknowledgeCrash = vm::acknowledgeCrash,
+                            onSimulateImpact = vm::simulateImpact,
                             modifier = Modifier.padding(insets),
                         )
                     }

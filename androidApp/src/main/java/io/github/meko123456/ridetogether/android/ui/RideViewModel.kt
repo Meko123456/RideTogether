@@ -19,6 +19,8 @@ import io.github.meko123456.ridetogether.android.history.RideHistory
 import io.github.meko123456.ridetogether.android.history.StoredRide
 import io.github.meko123456.ridetogether.summary.RideSummariser
 import io.github.meko123456.ridetogether.summary.TracePoint
+import io.github.meko123456.ridetogether.android.crash.CrashMonitor
+import io.github.meko123456.ridetogether.crash.CrashSignal
 import io.github.meko123456.ridetogether.model.Member
 import io.github.meko123456.ridetogether.model.Role
 import io.github.meko123456.ridetogether.model.Room
@@ -73,8 +75,24 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
     var lastSummary by mutableStateOf<StoredRide?>(null)
         private set
 
+    /** A crash countdown in progress, or a confirmed crash waiting to be acknowledged. */
+    var crashSignal by mutableStateOf<CrashSignal?>(null)
+        private set
+
     init {
         rides = history.load()
+        viewModelScope.launch {
+            CrashMonitor.signal.collect { signal ->
+                crashSignal = signal
+                when (signal) {
+                    is CrashSignal.CrashConfirmed -> {
+                        // Into the feed and, because it is CRITICAL, straight out of the speaker.
+                        record(RideEvent.PossibleIncident(signal.at, riderId, signal.location))
+                    }
+                    else -> Unit
+                }
+            }
+        }
         // Collect this phone's own fixes while a ride is running. The service decides what is
         // worth publishing; this only decides what is worth remembering.
         viewModelScope.launch {
@@ -390,6 +408,31 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
 
     fun dismissSummary() {
         lastSummary = null
+    }
+
+    /** "I'm fine" — the whole reason a detector is allowed to be wrong. */
+    fun cancelCrashCountdown() {
+        CrashMonitor.cancel(Clock.System.now())
+        crashSignal = null
+        CrashMonitor.consumeSignal()
+    }
+
+    fun acknowledgeCrash() {
+        crashSignal = null
+        CrashMonitor.consumeSignal()
+    }
+
+    /**
+     * Drives the real detector with a synthetic impact so the countdown can be tested without
+     * crashing a motorcycle. It goes through the genuine arming conditions, so if those are not
+     * met nothing happens — which is itself the useful thing to see.
+     */
+    fun simulateImpact() {
+        if (room?.state?.sharesLocation != true) {
+            notice = "Start the ride first — crash detection is only armed during one."
+            return
+        }
+        CrashMonitor.simulateImpact(Clock.System.now())
     }
 
     fun voiceStatus(): String = speaker.status()

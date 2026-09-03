@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.meko123456.ridetogether.android.history.StoredRide
+import io.github.meko123456.ridetogether.crash.CrashSignal
 import io.github.meko123456.ridetogether.model.Member
 import io.github.meko123456.ridetogether.model.QuickMessage
 import io.github.meko123456.ridetogether.model.RideEvent
@@ -60,6 +61,10 @@ fun RoomScreen(
     onSimulateMessage: (QuickMessage) -> Unit,
     summary: StoredRide?,
     onDismissSummary: () -> Unit,
+    crashSignal: CrashSignal?,
+    onCancelCrash: () -> Unit,
+    onAcknowledgeCrash: () -> Unit,
+    onSimulateImpact: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -99,6 +104,16 @@ fun RoomScreen(
                     Text("Share invite link")
                 }
             }
+        }
+
+        // Above everything else, including the ride's own status: if the app thinks you may be
+        // hurt, nothing else on this screen matters.
+        crashSignal?.let { signal ->
+            CrashCountdownCard(
+                signal = signal,
+                onCancel = onCancelCrash,
+                onAcknowledge = onAcknowledgeCrash,
+            )
         }
 
         summary?.let { finished ->
@@ -156,6 +171,7 @@ fun RoomScreen(
             enabled = room.state.sharesLocation,
             onSend = onSendMessage,
             onSimulate = onSimulateMessage,
+            onSimulateImpact = onSimulateImpact,
             voiceLine = voiceLine,
         )
 
@@ -277,6 +293,7 @@ private fun MessagesCard(
     enabled: Boolean,
     onSend: (QuickMessage) -> Unit,
     onSimulate: (QuickMessage) -> Unit,
+    onSimulateImpact: () -> Unit,
     voiceLine: String,
 ) {
     Card {
@@ -308,6 +325,9 @@ private fun MessagesCard(
                 enabled = enabled,
             ) {
                 Text("Hear a message from another rider (demo)")
+            }
+            TextButton(onClick = onSimulateImpact, enabled = enabled) {
+                Text("Simulate an impact (demo)")
             }
         }
     }
