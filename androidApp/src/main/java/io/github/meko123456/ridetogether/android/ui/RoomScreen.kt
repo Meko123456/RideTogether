@@ -29,6 +29,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.meko123456.ridetogether.model.Member
+import io.github.meko123456.ridetogether.model.QuickMessage
+import io.github.meko123456.ridetogether.model.RideEvent
 import io.github.meko123456.ridetogether.model.Role
 import io.github.meko123456.ridetogether.model.Room
 import io.github.meko123456.ridetogether.model.RoomState
@@ -51,6 +53,10 @@ fun RoomScreen(
     onShare: (String) -> Unit,
     onBack: () -> Unit,
     locationLine: String,
+    voiceLine: String,
+    feed: List<RideEvent>,
+    onSendMessage: (QuickMessage) -> Unit,
+    onSimulateMessage: (QuickMessage) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -138,6 +144,15 @@ fun RoomScreen(
         }
 
         Controls(room = room, onCommand = onCommand)
+
+        MessagesCard(
+            enabled = room.state.sharesLocation,
+            onSend = onSendMessage,
+            onSimulate = onSimulateMessage,
+            voiceLine = voiceLine,
+        )
+
+        FeedCard(feed = feed, nameOf = { id -> room.member(id)?.displayName ?: "A rider" })
         Spacer(Modifier.height(16.dp))
     }
 }
@@ -243,6 +258,95 @@ private fun Controls(room: Room, onCommand: (RoomCommand) -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/**
+ * The one-tap messages (spec 2.4). Four buttons and no free text on purpose: anything requiring a
+ * keyboard cannot be sent from a bike, so the canned set is the feature rather than a limitation.
+ */
+@Composable
+private fun MessagesCard(
+    enabled: Boolean,
+    onSend: (QuickMessage) -> Unit,
+    onSimulate: (QuickMessage) -> Unit,
+    voiceLine: String,
+) {
+    Card {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Say something", style = MaterialTheme.typography.titleMedium)
+            for (message in QuickMessage.entries) {
+                OutlinedButton(
+                    onClick = { onSend(message) },
+                    enabled = enabled,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(message.text)
+                }
+            }
+            HorizontalDivider()
+            Text(
+                voiceLine,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "Your own messages are never read back to you, so hearing the voice needs a " +
+                    "message from someone else — which the network layer will bring. Until then:",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(
+                onClick = { onSimulate(QuickMessage.PULL_OVER_NEXT_SAFE_SPOT) },
+                enabled = enabled,
+            ) {
+                Text("Hear a message from another rider (demo)")
+            }
+        }
+    }
+}
+
+/** The append-only ride log (spec 2.4), newest first, because that is how it gets read. */
+@Composable
+private fun FeedCard(feed: List<RideEvent>, nameOf: (String) -> String) {
+    if (feed.isEmpty()) return
+    Card {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Ride log", style = MaterialTheme.typography.titleMedium)
+            for (event in feed.take(12)) {
+                Text(
+                    describe(event, nameOf),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Feed copy, which is not the same as spoken copy: this is read at a standstill, so it can carry
+ * detail a spoken line has no room for.
+ */
+private fun describe(event: RideEvent, nameOf: (String) -> String): String {
+    val who = nameOf(event.riderId)
+    return when (event) {
+        is RideEvent.Joined -> "$who joined"
+        is RideEvent.Left -> "$who left"
+        is RideEvent.StateChanged -> when (event.to) {
+            RoomState.RIDING -> "Ride started"
+            RoomState.PAUSED -> "Ride paused"
+            RoomState.ENDED -> "Ride ended — location sharing stopped"
+            RoomState.LOBBY -> "Back in the lobby"
+        }
+        is RideEvent.FellBehind -> "$who dropped back (${event.gapMeters.toInt()} m)"
+        is RideEvent.Rejoined -> "$who is back with the group"
+        is RideEvent.Responded -> "$who answered: ${event.response.name.lowercase().replace('_', ' ')}"
+        is RideEvent.PossibleIncident -> "$who may have come off"
+        is RideEvent.SignalLost -> "$who lost signal"
+        is RideEvent.SignalRestored -> "$who is reporting again"
+        is RideEvent.Message -> "$who: ${event.message.text}"
+        is RideEvent.BatterySaver -> "$who is low on battery (${event.batteryPercent}%)"
     }
 }
 

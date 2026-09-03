@@ -3,8 +3,15 @@ package io.github.meko123456.ridetogether.android.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import io.github.meko123456.ridetogether.model.JoinCode
+import io.github.meko123456.ridetogether.android.location.RideLocation
+import io.github.meko123456.ridetogether.android.speech.RideSpeaker
+import io.github.meko123456.ridetogether.model.QuickMessage
+import io.github.meko123456.ridetogether.model.RideEvent
+import io.github.meko123456.ridetogether.session.RideSession
+import io.github.meko123456.ridetogether.session.SessionTick
 import io.github.meko123456.ridetogether.model.Member
 import io.github.meko123456.ridetogether.model.Role
 import io.github.meko123456.ridetogether.model.Room
@@ -29,12 +36,19 @@ import kotlin.random.Random
  * behind a `RealtimeClient` interface; until then a code resolves only against rides created on
  * this device, which is enough to exercise the real join path end to end.
  */
-class RideViewModel : ViewModel() {
+class RideViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Stands in for the signed-in rider until accounts land. */
     private val riderId = "me"
 
     private val rooms = mutableMapOf<String, Room>()
+
+    private val session = RideSession(selfId = riderId)
+    private val speaker = RideSpeaker(application).also { it.configure() }
+
+    /** The append-only ride log (spec 2.4). Newest first, because that is how it is read. */
+    var feed by mutableStateOf<List<RideEvent>>(emptyList())
+        private set
 
     var room by mutableStateOf<Room?>(null)
         private set
@@ -192,12 +206,20 @@ class RideViewModel : ViewModel() {
             now = now,
         )
         when (transition) {
-            is RoomTransition.Accepted -> save(
-                current.copy(
-                    state = transition.to,
-                    endedAt = if (transition.to == RoomState.ENDED) now else current.endedAt,
-                ),
-            )
+            is RoomTransition.Accepted -> {
+                save(
+                    current.copy(
+                        state = transition.to,
+                        endedAt = if (transition.to == RoomState.ENDED) now else current.endedAt,
+                    ),
+                )
+                record(RideEvent.StateChanged(now, riderId, transition.from, transition.to))
+                if (transition.to == RoomState.ENDED) {
+                    // Nothing should still be talking about a ride that is over.
+                    speaker.stop()
+                    session.reset()
+                }
+            }
             is RoomTransition.Rejected -> notice = describe(transition.reason)
         }
     }
@@ -238,6 +260,60 @@ class RideViewModel : ViewModel() {
         }
     }
 
+    /** Sends a one-tap message to the room (spec 2.4). */
+    fun send(message: QuickMessage) {
+        val current = room ?: return
+        if (!current.state.sharesLocation) {
+            notice = "Messages are for a ride in progress."
+            return
+        }
+        record(RideEvent.Message(Clock.System.now(), riderId, message))
+        notice = "Sent: ${message.text}"
+    }
+
+    /**
+     * Stands in for another rider messaging the room until the realtime layer lands. Exists
+     * because the announcer deliberately never reads your own message back to you, so without
+     * a second rider there is no way to hear the audio path work at all.
+     */
+    fun simulateMessageFromAnother(message: QuickMessage) {
+        val current = room ?: return
+        val other = current.members.firstOrNull { it.riderId != riderId } ?: run {
+            notice = "Add a rider first — a message from yourself is not read back to you."
+            return
+        }
+        record(RideEvent.Message(Clock.System.now(), other.riderId, message))
+    }
+
+    /**
+     * Runs one session tick and speaks whatever comes out. Called after anything that could
+     * produce an announcement, rather than on a timer: without the realtime layer there are no
+     * incoming positions, so nothing changes unless this app changed it.
+     */
+    private fun record(event: RideEvent) {
+        val current = room ?: return
+        feed = (listOf(event) + feed).take(MAX_FEED)
+        val result = session.tick(
+            SessionTick(
+                now = event.at,
+                roomState = current.state,
+                members = current.members,
+                samples = RideLocation.own.value?.let { mapOf(riderId to it) } ?: emptyMap(),
+                batteryPercent = null,
+                events = listOf(event),
+            ),
+            nameOf = { id -> current.member(id)?.displayName ?: "A rider" },
+        )
+        speaker.speak(result.announcements)
+    }
+
+    fun voiceStatus(): String = speaker.status()
+
+    override fun onCleared() {
+        speaker.release()
+        super.onCleared()
+    }
+
     private fun save(updated: Room) {
         rooms[updated.code.value] = updated
         room = updated
@@ -258,6 +334,7 @@ class RideViewModel : ViewModel() {
     }
 
     private companion object {
+        const val MAX_FEED = 50
         val DEMO_NAMES = listOf("Giorgi", "Nika", "Ana", "Luka", "Saba", "Mari", "Dato", "Tazo", "Vato")
     }
 }

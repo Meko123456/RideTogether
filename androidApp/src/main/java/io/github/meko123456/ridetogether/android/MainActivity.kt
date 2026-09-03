@@ -143,6 +143,10 @@ class MainActivity : ComponentActivity() {
                             onShare = ::shareInvite,
                             onBack = vm::leaveRoom,
                             locationLine = locationLine(collecting, locationGranted, ownFix, interval),
+                            voiceLine = vm.voiceStatus(),
+                            feed = vm.feed,
+                            onSendMessage = vm::send,
+                            onSimulateMessage = vm::simulateMessageFromAnother,
                             modifier = Modifier.padding(insets),
                         )
                     }
