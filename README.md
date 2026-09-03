@@ -44,7 +44,7 @@ or location permission exists.
 | Ride session (engine + announcer + location policy, composed) | ✅ |
 | Ride summary (distance, moving average, stops, glitch filtering) | 🟡 core done |
 | Quick messages + TTS through a helmet headset | ⬜ |
-| iOS app | ⬜ phase 2 |
+| iOS app — shared framework links and its tests pass; no app yet | 🟡 phase 2 |
 
 188 tests, all in `:shared` — the engine is driven by synthetic GPS traces, so the interesting
 logic is covered without a device.
