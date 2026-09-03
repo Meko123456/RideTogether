@@ -433,6 +433,39 @@ writable by any signed-in user because the client was the only thing enforcing a
 
 ---
 
+## 20. Crash signals reach the announcer, and that does not breach their isolation
+
+**[Decision 14](#14-crash-detection-is-a-separate-signal-hierarchy-not-an-alert)** made `CrashSignal`
+an unrelated hierarchy from `Alert` so the compiler forbids a crash alarm being raised from the
+alert engine's path.
+
+**Code:** the announcer accepts `CrashSignal` directly, alongside alerts and events.
+
+**Why:** the isolation had a consequence nobody would predict from reading it. The announcer only
+ever saw `Alert`s and `RideEvent`s, so it never learned about crashes — and the confirmed crash
+that *does* reach the feed as a `RideEvent.PossibleIncident` is deliberately ignored there, because
+the announcer drops feed echoes of engine alerts to avoid saying everything twice.
+
+The result, found by running the app on a device: **the crash countdown appeared on screen and
+said nothing.** Which is useless. The entire justification for arming a detector that is allowed
+to be wrong is that being wrong costs one tap — and a rider who may have come off is not looking
+at a phone. A tap nobody knows to make is not a safety valve.
+
+The fix does not weaken decision 14. The requirement is that a crash alarm cannot be raised *from
+the alert engine's path*; the announcer is not the alert engine. It decides what is said, not what
+is true, and keeping the decision there rather than speaking from the platform layer is what keeps
+the restraint — priority, the quiet period, no repeats — in one place.
+
+Cancelling is deliberately silent: the rider has just told the app they are fine, and saying it
+back to them is talking for the sake of it.
+
+**The general lesson**, which is why this is written down rather than just fixed: an isolation
+boundary drawn with the type system is only as good as the paths that cross it, and "nothing can
+reach this" and "this can reach nothing" are different claims. The first was wanted; the second was
+what got built.
+
+---
+
 ## Smaller notes
 
 - **`mipmap-anydpi-v26` keeps its qualifier** even though `minSdk` is 26 and lint calls it

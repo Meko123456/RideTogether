@@ -35,18 +35,18 @@ or location permission exists.
 | Room lifecycle + join policy state machines | ✅ |
 | Alert engine (separation / incident detection) | ✅ mutation-tested |
 | Android app shell (create + join a ride, room controls, invite links) | ✅ |
-| Live map (MapLibre + OSM) | ⬜ next |
-| Foreground-service location + adaptive intervals | ⬜ next |
+| Live map (MapLibre + OpenFreeMap vector tiles) | ✅ |
+| Foreground-service location + adaptive intervals | ✅ |
 | Realtime sync — interface + in-memory implementation | 🟡 Firebase pending |
-| Crash detection (pure detector + countdown; sensor source pending) | 🟡 core done |
+| Crash detection — sensors, countdown, spoken warning | ✅ |
 | Adaptive location intervals + kill switch | ✅ mutation-tested |
 | Audio-first announcement policy (what is spoken, and what is not) | ✅ mutation-tested |
 | Ride session (engine + announcer + location policy, composed) | ✅ |
-| Ride summary (distance, moving average, stops, glitch filtering) | 🟡 core done |
-| Quick messages + TTS through a helmet headset | ⬜ |
+| Ride summary + history | ✅ |
+| Quick messages, ride log + TTS through a helmet headset | ✅ |
 | iOS app — shared framework links and its tests pass; no app yet | 🟡 phase 2 |
 
-188 tests, all in `:shared` — the engine is driven by synthetic GPS traces, so the interesting
+197 tests in `:shared`, 14 in `:androidApp` — the engine is driven by synthetic GPS traces, so the interesting
 logic is covered without a device.
 
 ## Architecture
