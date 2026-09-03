@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import androidx.lifecycle.viewModelScope
 import io.github.meko123456.ridetogether.model.JoinCode
+import io.github.meko123456.ridetogether.android.RiderIdentity
 import io.github.meko123456.ridetogether.android.location.RideLocation
 import io.github.meko123456.ridetogether.android.speech.RideSpeaker
 import io.github.meko123456.ridetogether.model.QuickMessage
@@ -55,7 +56,7 @@ import kotlin.random.Random
 class RideViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Stands in for the signed-in rider until accounts land. */
-    private val riderId = "me"
+    private val riderId = RiderIdentity.SELF
 
     /**
      * The backend. In-memory for now — see #10. Held as the interface type deliberately, so

@@ -21,6 +21,7 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import io.github.meko123456.ridetogether.alerts.RiderSample
+import io.github.meko123456.ridetogether.android.RiderIdentity
 import io.github.meko123456.ridetogether.android.crash.CrashMonitor
 import io.github.meko123456.ridetogether.android.crash.CrashSensors
 import io.github.meko123456.ridetogether.android.MainActivity
@@ -261,8 +262,8 @@ class RideLocationService : Service() {
         private const val CHANNEL_ID = "ride-location"
         private const val NOTIFICATION_ID = 7
 
-        /** Stands in for the signed-in rider until accounts land. Matches RideViewModel. */
-        const val SELF_ID = "me"
+        /** Stands in for the signed-in rider until accounts land. */
+        val SELF_ID = RiderIdentity.SELF
 
         const val ACTION_START = "io.github.meko123456.ridetogether.LOCATION_START"
         const val ACTION_ROOM_STATE = "io.github.meko123456.ridetogether.LOCATION_ROOM_STATE"
