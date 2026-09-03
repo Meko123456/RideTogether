@@ -107,6 +107,51 @@ class InMemoryRealtimeClientTest {
     }
 
     @Test
+    fun `naming a sweep is room state so every rider agrees who is last`() = runTest {
+        // It changes what the alert engine believes, so a local-only flag would leave one phone
+        // quiet about the back marker while another kept prompting them.
+        val client = client()
+        client.createRoom("Ride", code, t0)
+        client.join(code.value, Member(other, "Nika"), t0)
+
+        client.setSweep(code.value, other, t0)
+        assertTrue(client.room(code.value).value?.sweep?.riderId == other)
+    }
+
+    @Test
+    fun `there is only ever one sweep`() = runTest {
+        // Two back markers means two riders the engine never prompts, which is the one thing
+        // this flag must not be able to do.
+        val client = client()
+        client.createRoom("Ride", code, t0)
+        client.join(code.value, Member(other, "Nika"), t0)
+
+        client.setSweep(code.value, other, t0)
+        client.setSweep(code.value, me, t0)
+        val members = client.room(code.value).value?.members.orEmpty()
+        assertEquals(1, members.count { it.isSweep })
+        assertEquals(me, members.single { it.isSweep }.riderId)
+    }
+
+    @Test
+    fun `the sweep can be cleared`() = runTest {
+        val client = client()
+        client.createRoom("Ride", code, t0)
+        client.setSweep(code.value, me, t0)
+        client.setSweep(code.value, null, t0)
+        assertNull(client.room(code.value).value?.sweep)
+    }
+
+    @Test
+    fun `somebody who is not in the room cannot be made sweep`() = runTest {
+        val client = client()
+        client.createRoom("Ride", code, t0)
+        val result = client.setSweep(code.value, "stranger", t0)
+        assertEquals(RealtimeError.NOT_PERMITTED, result.errorOrNull)
+        assertNull(client.room(code.value).value?.sweep)
+    }
+
+    @Test
     fun `a rider who leaves stops appearing on the map`() = runTest {
         // Presence going away has to take the position with it, or a rider who left lingers at
         // their last known spot and the group keeps waiting for them.

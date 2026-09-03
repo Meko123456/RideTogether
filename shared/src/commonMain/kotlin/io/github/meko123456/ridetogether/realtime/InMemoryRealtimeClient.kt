@@ -125,6 +125,19 @@ class InMemoryRealtimeClient(
         return Unit.asRealtimeSuccess()
     }
 
+    override suspend fun setSweep(roomId: String, riderId: String?, now: Instant): RealtimeResult<Unit> {
+        offline()?.let { return it }
+        val flow = rooms[roomId] ?: return realtimeFailure(RealtimeError.ROOM_GONE)
+        val room = flow.value ?: return realtimeFailure(RealtimeError.ROOM_GONE)
+        if (riderId != null && room.member(riderId) == null) {
+            return realtimeFailure(RealtimeError.NOT_PERMITTED)
+        }
+        // Exactly one sweep, enforced here rather than trusted from the caller: two back markers
+        // means two riders the engine never prompts, which is the one thing this flag must not do.
+        flow.value = room.copy(members = room.members.map { it.copy(isSweep = it.riderId == riderId) })
+        return Unit.asRealtimeSuccess()
+    }
+
     override fun observeRoom(roomId: String): Flow<Room?> = flowFor(roomId)
 
     override suspend fun publishPosition(roomId: String, sample: RiderSample): RealtimeResult<Unit> {

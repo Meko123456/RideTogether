@@ -51,6 +51,15 @@ interface RealtimeClient {
     /** Changes the room's state. The caller has already asked the state machine whether it may. */
     suspend fun setState(roomId: String, state: RoomState, now: Instant): RealtimeResult<Unit>
 
+    /**
+     * Names one rider as the sweep, or clears it when [riderId] is null.
+     *
+     * Room state rather than local state, because the sweep changes what the *group's* alert
+     * engine believes: every rider's copy has to agree about who is legitimately last, or one
+     * phone stays quiet about the back marker while another keeps prompting them.
+     */
+    suspend fun setSweep(roomId: String, riderId: String?, now: Instant): RealtimeResult<Unit>
+
     /** The room as it changes, including membership. Emits null once the room is gone. */
     fun observeRoom(roomId: String): Flow<Room?>
 

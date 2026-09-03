@@ -367,12 +367,14 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleSweep(targetRiderId: String) {
         val current = room ?: return
         val alreadySweep = current.member(targetRiderId)?.isSweep == true
-        // Local until the client grows a sweep call: it changes what the alert engine believes
-        // rather than what the backend enforces, so it is not urgent, but it does mean the flag
-        // will not survive a room arriving fresh from the network. Noted rather than hidden.
-        room = current.copy(
-            members = current.members.map { it.copy(isSweep = !alreadySweep && it.riderId == targetRiderId) },
-        )
+        viewModelScope.launch {
+            val result = client.setSweep(
+                roomId = current.id,
+                riderId = if (alreadySweep) null else targetRiderId,
+                now = Clock.System.now(),
+            )
+            if (result is RealtimeResult.Failure) notice = describe(result.error)
+        }
     }
 
     /**
