@@ -49,4 +49,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
 
       - name: Test shared on the iOS simulator target
-        run: ./gradlew :shared:iosSimulatorArm64Test --stacktrace
+        run: ./gradlew :shared:iosSimulatorArm64Test :shared:compileKotlinIosArm64 --stacktrace
+
+      # Linking is a stronger claim than compiling, and it is the one that breaks the moment a
+      # native dependency reaches :shared. SyncBeats cannot get past this step at all, because the
+      # Firebase iOS SDK is not integrated there. This module has no native dependencies and should
+      # stay that way, so the check is here to notice if that changes.
+      - name: Link the iOS framework
+        run: ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 --stacktrace
