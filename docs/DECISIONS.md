@@ -360,6 +360,39 @@ twice. `RideSession.isAnnounceable` is what stops that, and it is tested.
 
 ---
 
+## 18. A segment counts as movement only when both speed sources agree
+
+**Spec §2.6** asks for distance and average speed. Either of the two available speed sources looks
+sufficient on its own.
+
+**Code:** `RideSummariser` treats a segment as movement only when *displacement over time* **and**
+the provider's own reported speed both say so, and distance accumulates only in that branch.
+
+**Why:** each source lies, in a different situation, and a real device produced both inside a week.
+
+- **Displacement alone counts GPS drift as travel.** A phone sitting still wanders tens of metres
+  between fixes. Over a 30-second interval that is 1.2 m/s, which clears any sane threshold. The
+  first real summary read *distance 105 m, average 20 km/h, top speed 1 km/h* — an average five
+  times the maximum, which cannot happen and was the tell.
+- **The provider's speed alone books stopped time as riding.** A rider parked with reporting
+  slowed to once a minute pulls away, and their first fix reads 20 m/s with the bike not having
+  moved, so a whole stationary minute counts as movement and the lunch stop leaks back into the
+  moving average.
+
+Neither failure appears in a synthetic trace with clean constant speeds, which is exactly the case
+where the two sources never disagree — so the tests that existed could not have caught it, and did
+not. Both cases are now traces of their own.
+
+A second, related fix: the max-speed series is built from moving segments only. Collected across
+every segment, a lone genuine moving segment was averaged against stationary neighbours by the
+median filter and smoothed to nothing, so the top speed came out *below* the average shown beside
+it.
+
+**Cost to reverse:** none, but the invariant is worth keeping as a test: an average can never
+exceed the maximum, and if it does the estimators have drifted apart again.
+
+---
+
 ## Smaller notes
 
 - **`mipmap-anydpi-v26` keeps its qualifier** even though `minSdk` is 26 and lint calls it
