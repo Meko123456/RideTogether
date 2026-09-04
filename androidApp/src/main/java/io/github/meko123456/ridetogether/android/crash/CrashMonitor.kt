@@ -1,5 +1,6 @@
 package io.github.meko123456.ridetogether.android.crash
 
+import io.github.meko123456.ridetogether.android.ui.CrashDetection
 import io.github.meko123456.ridetogether.crash.CrashSignal
 import io.github.meko123456.ridetogether.crash.CrashState
 import io.github.meko123456.ridetogether.crash.MotionSample
@@ -17,7 +18,7 @@ import kotlinx.datetime.Instant
  * — this app has no dependency-injection wiring yet and a service cannot be constructed with
  * arguments. The detector itself is the tested one from `:shared`; nothing here decides anything.
  */
-object CrashMonitor {
+object CrashMonitor : CrashDetection {
 
     private var detector = ThresholdCrashDetector()
 
@@ -26,7 +27,7 @@ object CrashMonitor {
 
     /** The latest signal, held so the UI can show a countdown that survives recomposition. */
     private val _signal = MutableStateFlow<CrashSignal?>(null)
-    val signal: StateFlow<CrashSignal?> = _signal
+    override val signal: StateFlow<CrashSignal?> = _signal
 
     fun feed(sample: MotionSample, location: LatLng?) {
         detector.onMotion(sample, location)?.let { _signal.value = it }
@@ -34,20 +35,20 @@ object CrashMonitor {
     }
 
     /** The rider said they were fine. */
-    fun cancel(at: Instant) {
+    override fun cancel(at: Instant) {
         detector.cancel(at)?.let { _signal.value = it }
         _state.value = detector.state
     }
 
     /** A new ride, or a confirmed crash that has been dealt with. */
-    fun reset() {
+    override fun reset() {
         detector = ThresholdCrashDetector()
         _state.value = CrashState.IDLE
         _signal.value = null
     }
 
     /** Clears a signal the UI has finished acting on, without resetting the detector. */
-    fun consumeSignal() {
+    override fun consumeSignal() {
         _signal.value = null
     }
 
@@ -57,7 +58,7 @@ object CrashMonitor {
      * signal, so what the rider sees is what a genuine impact would produce — including the fact
      * that nothing happens at all unless the arming conditions were met first.
      */
-    fun simulateImpact(now: Instant) {
+    override fun simulateImpact(now: Instant) {
         // Riding, so the detector arms.
         feed(MotionSample(now, accelerationMps2 = 2.0, tiltDegrees = 10.0, speedMps = 20.0), null)
         // The impact.

@@ -5,6 +5,7 @@ import android.media.AudioAttributes
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
+import io.github.meko123456.ridetogether.android.ui.Voice
 import io.github.meko123456.ridetogether.announce.Announcement
 import io.github.meko123456.ridetogether.announce.Priority
 import java.util.Locale
@@ -26,7 +27,7 @@ import java.util.Locale
  *   "someone may have come off", the rider should hear that one first, not after the fuel-stop
  *   message that happened to arrive earlier.
  */
-class RideSpeaker(context: Context) {
+class RideSpeaker(context: Context) : Voice {
 
     private var ready = false
     private var lastError: String? = null
@@ -72,7 +73,7 @@ class RideSpeaker(context: Context) {
         return true
     }
 
-    fun speak(announcements: List<Announcement>) {
+    override fun speak(announcements: List<Announcement>) {
         if (announcements.isEmpty()) return
         if (!ready) {
             Log.w(TAG, "not speaking, engine not ready: ${announcements.map { it.text }}")
@@ -90,17 +91,17 @@ class RideSpeaker(context: Context) {
     }
 
     /** Stops mid-sentence. Called when a ride ends: nothing should still be talking about it. */
-    fun stop() {
+    override fun stop() {
         runCatching { tts.stop() }
     }
 
-    fun release() {
+    override fun release() {
         runCatching { tts.stop() }
         runCatching { tts.shutdown() }
     }
 
     /** For the diagnostics line, so "nothing was said" has a visible reason. */
-    fun status(): String = when {
+    override fun status(): String = when {
         ready && lastError == null -> "Voice ready"
         lastError != null -> "Voice unavailable — $lastError"
         else -> "Voice starting…"

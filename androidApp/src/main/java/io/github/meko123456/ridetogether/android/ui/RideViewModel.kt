@@ -3,15 +3,19 @@ package io.github.meko123456.ridetogether.android.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import io.github.meko123456.ridetogether.android.crash.CrashMonitor
+import io.github.meko123456.ridetogether.android.location.RideLocation
+import io.github.meko123456.ridetogether.android.speech.RideSpeaker
+import io.github.meko123456.ridetogether.realtime.InMemoryRealtimeClient
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.meko123456.ridetogether.model.JoinCode
 import io.github.meko123456.ridetogether.android.RiderIdentity
-import io.github.meko123456.ridetogether.android.location.RideLocation
-import io.github.meko123456.ridetogether.android.speech.RideSpeaker
 import io.github.meko123456.ridetogether.model.QuickMessage
 import io.github.meko123456.ridetogether.model.RideEvent
 import io.github.meko123456.ridetogether.session.RideSession
@@ -20,11 +24,9 @@ import io.github.meko123456.ridetogether.android.history.RideHistory
 import io.github.meko123456.ridetogether.android.history.StoredRide
 import io.github.meko123456.ridetogether.summary.RideSummariser
 import io.github.meko123456.ridetogether.summary.TracePoint
-import io.github.meko123456.ridetogether.android.crash.CrashMonitor
 import io.github.meko123456.ridetogether.crash.CrashSignal
 import io.github.meko123456.ridetogether.alerts.RiderAssessment
 import io.github.meko123456.ridetogether.alerts.RiderSample
-import io.github.meko123456.ridetogether.realtime.InMemoryRealtimeClient
 import io.github.meko123456.ridetogether.realtime.RealtimeClient
 import io.github.meko123456.ridetogether.realtime.RealtimeError
 import io.github.meko123456.ridetogether.realtime.RealtimeResult
@@ -53,19 +55,23 @@ import kotlin.random.Random
  * straight off the phone's own sensor, and writes can fail with a reason. Swapping Firebase in
  * (#10) changes the construction of `client` and nothing in this class.
  */
-class RideViewModel(application: Application) : AndroidViewModel(application) {
-
-    /** Stands in for the signed-in rider until accounts land. */
-    private val riderId = RiderIdentity.SELF
-
+class RideViewModel(
     /**
      * The backend. In-memory for now — see #10. Held as the interface type deliberately, so
      * nothing here can reach for a capability the real implementation will not have.
      */
-    private val client: RealtimeClient = InMemoryRealtimeClient(selfId = riderId)
+    private val client: RealtimeClient,
+    private val speaker: Voice,
+    private val history: RideHistory,
+    private val ownLocation: OwnLocation,
+    private val crash: CrashDetection,
+    /** Stands in for the signed-in rider until accounts land. */
+    private val riderId: String = RiderIdentity.SELF,
+) : ViewModel() {
 
     /** Only the demo affordances need the concrete type, and only to fake other riders. */
-    private val fakeOthers: InMemoryRealtimeClient? get() = client as? InMemoryRealtimeClient
+    private val fakeOthers: io.github.meko123456.ridetogether.realtime.InMemoryRealtimeClient?
+        get() = client as? io.github.meko123456.ridetogether.realtime.InMemoryRealtimeClient
 
     private var roomWatch: Job? = null
     private var positionWatch: Job? = null
@@ -75,7 +81,6 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
     /** Guards against stacking follow-up ticks when several events arrive together. */
     private var followUpScheduled = false
 
-    private val history = RideHistory(application)
     private val summariser = RideSummariser()
 
     /**
@@ -108,7 +113,7 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
     init {
         rides = history.load()
         viewModelScope.launch {
-            CrashMonitor.signal.collect { signal ->
+            crash.signal.collect { signal ->
                 crashSignal = signal
                 if (signal == null) return@collect
                 // Through the session, so the announcer decides what is spoken — including the
@@ -126,7 +131,7 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-    private val speaker = RideSpeaker(application).also { it.configure() }
+
 
     /** The append-only ride log (spec 2.4). Newest first, because that is how it is read. */
     var feed by mutableStateOf<List<RideEvent>>(emptyList())
@@ -309,7 +314,7 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
         // This phone's own fixes go *to* the client and come back through the flow above, which is
         // exactly the path they will take once there is a network in between.
         viewModelScope.launch {
-            RideLocation.own.collect { sample ->
+            ownLocation.own.collect { sample ->
                 val here = room ?: return@collect
                 if (sample != null && here.state.sharesLocation) {
                     client.publishPosition(here.id, sample)
@@ -354,6 +359,7 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
                     // Nothing should still be talking about a ride that is over.
                     speaker.stop()
                     session.reset()
+                    crash.reset()
                     finishRide(current)
                 }
             }
@@ -495,14 +501,14 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
 
     /** "I'm fine" — the whole reason a detector is allowed to be wrong. */
     fun cancelCrashCountdown() {
-        CrashMonitor.cancel(Clock.System.now())
+        crash.cancel(Clock.System.now())
         crashSignal = null
-        CrashMonitor.consumeSignal()
+        crash.consumeSignal()
     }
 
     fun acknowledgeCrash() {
         crashSignal = null
-        CrashMonitor.consumeSignal()
+        crash.consumeSignal()
     }
 
     /**
@@ -515,7 +521,7 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
             notice = "Start the ride first — crash detection is only armed during one."
             return
         }
-        CrashMonitor.simulateImpact(Clock.System.now())
+        crash.simulateImpact(Clock.System.now())
     }
 
     fun voiceStatus(): String = speaker.status()
@@ -547,10 +553,29 @@ class RideViewModel(application: Application) : AndroidViewModel(application) {
         JoinRefusal.ROOM_EXPIRED -> "That code has expired."
     }
 
-    private companion object {
+    companion object {
+        /**
+         * Builds the real thing. The only place the platform implementations are named, so the
+         * view model itself stays free of them and the tests can pass fakes.
+         */
+        fun factory(application: android.app.Application): ViewModelProvider.Factory =
+            viewModelFactory {
+                initializer {
+                    RideViewModel(
+                        client = InMemoryRealtimeClient(selfId = RiderIdentity.SELF),
+                        speaker = RideSpeaker(application).also { it.configure() },
+                        history = RideHistory(application),
+                        ownLocation = RideLocation,
+                        crash = CrashMonitor,
+                    )
+                }
+            }
+
+
         /** A shade past the announcer's quiet period, so the channel is genuinely free. */
-        const val FOLLOW_UP_DELAY_MS = 21_000L
-        const val MAX_FEED = 50
-        val DEMO_NAMES = listOf("Giorgi", "Nika", "Ana", "Luka", "Saba", "Mari", "Dato", "Tazo", "Vato")
+        private const val FOLLOW_UP_DELAY_MS = 21_000L
+        private const val MAX_FEED = 50
+        private val DEMO_NAMES =
+            listOf("Giorgi", "Nika", "Ana", "Luka", "Saba", "Mari", "Dato", "Tazo", "Vato")
     }
 }

@@ -48,7 +48,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             RideTogetherTheme {
-                val vm: RideViewModel = viewModel()
+                val vm: RideViewModel = viewModel(factory = RideViewModel.factory(application))
                 val snackbarHostState = remember { SnackbarHostState() }
 
                 // An invite prefills the code field rather than joining silently: the rider

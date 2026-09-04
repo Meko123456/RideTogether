@@ -1,6 +1,7 @@
 package io.github.meko123456.ridetogether.android.location
 
 import io.github.meko123456.ridetogether.alerts.RiderSample
+import io.github.meko123456.ridetogether.android.ui.OwnLocation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.time.Duration
@@ -13,12 +14,12 @@ import kotlin.time.Duration
  * arguments. When the realtime layer arrives (#10) this becomes the thing that publishes to
  * Firebase instead, and the UI reads the room rather than the phone.
  */
-object RideLocation {
+object RideLocation : OwnLocation {
 
     private val _own = MutableStateFlow<RiderSample?>(null)
 
     /** The latest fix for this phone, or null before there is one. */
-    val own: StateFlow<RiderSample?> = _own
+    override val own: StateFlow<RiderSample?> = _own
 
     private val _interval = MutableStateFlow<Duration?>(null)
 
