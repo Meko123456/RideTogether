@@ -53,7 +53,7 @@ logic is covered without a device.
 
 ```
 shared/      Kotlin Multiplatform, no platform deps in the core
-  model/     LatLng + Geo (haversine, bearing, polyline distances), Room, Member,
+  model/ LatLng + Geo (haversine, bearing, polyline distances), Room, Member,
              RiderPresence, RideEvent, JoinCode
   room/      room lifecycle + membership state machine
   alerts/    fallback / separation detection engine (pure, trace-tested)
