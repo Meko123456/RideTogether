@@ -46,7 +46,7 @@ or location permission exists.
 | Quick messages, ride log + TTS through a helmet headset | ✅ |
 | iOS app — shared framework links and its tests pass; no app yet | 🟡 phase 2 |
 
-197 tests in `:shared`, 14 in `:androidApp` — the engine is driven by synthetic GPS traces, so the interesting
+197 tests in `:shared`, 23 in `:androidApp` — the engine is driven by synthetic GPS traces, so the interesting
 logic is covered without a device.
 
 ## Architecture
