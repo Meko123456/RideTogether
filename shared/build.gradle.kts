@@ -2,6 +2,10 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.kmp.library)
     alias(libs.plugins.kotlin.serialization)
+    // AGP's KMP library plugin only registers lint tasks for the main compilation when the
+    // standalone lint plugin is also applied; without it the module has no :lint task at all.
+    // No version: com.android.lint ships inside AGP, which is already on the classpath.
+    id("com.android.lint")
 }
 
 kotlin {

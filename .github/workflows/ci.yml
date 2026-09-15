@@ -24,8 +24,12 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
+      # :shared holds 197 of the 220 tests and all of the domain logic, so it is the module
+      # lint most needs to see. :androidApp:lintDebug does not reach it: lint stops at the module
+      # boundary, and AGP's KMP library plugin registers no lint task of its own unless the
+      # standalone lint plugin is applied, which shared/build.gradle.kts now does.
       - name: Build + test shared and Android
-        run: ./gradlew :shared:testAndroidHostTest :androidApp:testDebugUnitTest :androidApp:assembleDebug :androidApp:lintDebug --stacktrace
+        run: ./gradlew :shared:testAndroidHostTest :shared:lint :androidApp:testDebugUnitTest :androidApp:assembleDebug :androidApp:lintDebug --stacktrace
 
       # R8 and resource shrinking only run for release, so a debug-only CI lets the release build
       # rot until submission day. Cheap here, and it has bitten this toolchain before.
