@@ -1,0 +1,14 @@
+{
+  "name": "ridetogether-rules-tests",
+  "private": true,
+  "type": "commonjs",
+  "description": "Security-rules tests for database.rules.json, run against the Firebase database emulator.",
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.0.0",
+    "firebase-tools": "^13.29.1"
+  },
+  "scripts": {
+    "test": "cd ../.. && ./tools/rules-tests/node_modules/.bin/firebase emulators:exec --only database \"node tools/rules-tests/test-rules.js\""
+  }
+}

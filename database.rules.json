@@ -1,0 +1,133 @@
+{
+  // Nothing is readable or writable unless a rule below says so. Every path is opened
+  // deliberately, and the default staying shut is what makes a forgotten node safe rather than
+  // public.
+  //
+  // These rules are the only thing between a ride and anyone with an account. A group ride is a
+  // live feed of where several named people physically are, minute by minute, so the failure mode
+  // here is not a leaked playlist — it is a stranger watching someone ride home.
+  //
+  // The permission model deliberately mirrors `Role.canControlRoom` in the shared module rather
+  // than inventing a second one. The original spec said "only the leader writes meta", which
+  // contradicted co-leaders being able to pause a ride; the domain resolved that by giving both
+  // roles `canControlRoom`, and these rules follow it. Two copies of a permission model that
+  // disagree is worse than either.
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    // Join code to room id. Readable by any signed-in user because looking a room up by its code
+    // is what happens *before* you are a member of it — knowing the code is the entry ticket.
+    //
+    // Write-once: a code may be claimed while free and never rewritten, so nobody can point an
+    // existing code at a room they control and collect the people trying to join the real one.
+    "codes": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && !data.exists()",
+        ".validate": "newData.isString() && newData.val().length > 0 && $code.length === 6"
+      }
+    },
+
+    "rooms": {
+      "$roomId": {
+        // The room's own details. Readable by any signed-in user, because you have to see the
+        // name, the state and whether it is full to decide whether to join. Deliberately does NOT
+        // include who is in it or where they are — those are below, and members-only.
+        "meta": {
+          ".read": "auth != null",
+
+          // Creating: the creator must name themselves leader, so a room cannot be conjured with
+          // somebody else installed at the top of it.
+          // Changing: only a member whose role can control the room, which is leader or co-leader.
+          ".write": "auth != null && ( (!data.exists() && newData.child('leaderId').val() === auth.uid) || (data.exists() && ( root.child('rooms').child($roomId).child('members').child(auth.uid).child('role').val() === 'LEADER' || root.child('rooms').child($roomId).child('members').child(auth.uid).child('role').val() === 'CO_LEADER' )) )",
+
+          ".validate": "newData.hasChildren(['code', 'name', 'state', 'leaderId', 'maxRiders', 'createdAt'])",
+          "code": { ".validate": "newData.isString() && newData.val().length === 6" },
+          "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 60" },
+          "state": { ".validate": "newData.val() === 'LOBBY' || newData.val() === 'RIDING' || newData.val() === 'PAUSED' || newData.val() === 'ENDED'" },
+          "visibility": { ".validate": "newData.val() === 'INVITE_ONLY' || newData.val() === 'PUBLIC'" },
+          // 2..10 riders, matching Room.MIN_RIDERS..MAX_RIDERS. A server-side bound as well as a
+          // client-side one, because maxRiders is what the join check is measured against.
+          "maxRiders": { ".validate": "newData.isNumber() && newData.val() >= 2 && newData.val() <= 10" },
+          "leaderId": { ".validate": "newData.isString()" },
+          "createdAt": { ".validate": "newData.isNumber()" },
+          "endedAt": { ".validate": "newData.isNumber() || !newData.exists()" }
+        },
+
+        // Who is in the room. Members only — the list of names on a ride is not public, even to
+        // someone who knows the code.
+        "members": {
+          ".read": "auth != null && data.child(auth.uid).exists()",
+
+          "$riderId": {
+            // Three ways this node legitimately changes:
+            //
+            //  - you join, writing your own node. You may only give yourself RIDER, unless you are
+            //    the leader named in meta, which is the room's creator writing their own LEADER
+            //    row as the room is made.
+            //  - you leave, deleting your own node.
+            //  - a leader or co-leader writes or removes anyone, which is how promotion, demotion
+            //    and removing a rider work.
+            //
+            // The first clause is the one that matters: without the role check a rider could
+            // simply write LEADER over their own row and take the ride.
+            ".write": "auth != null && ( ($riderId === auth.uid && ( !newData.exists() || newData.child('role').val() === 'RIDER' || root.child('rooms').child($roomId).child('meta').child('leaderId').val() === auth.uid )) || root.child('rooms').child($roomId).child('members').child(auth.uid).child('role').val() === 'LEADER' || root.child('rooms').child($roomId).child('members').child(auth.uid).child('role').val() === 'CO_LEADER' )",
+
+            ".validate": "newData.hasChildren(['displayName', 'role'])",
+            "displayName": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40" },
+            "role": { ".validate": "newData.val() === 'LEADER' || newData.val() === 'CO_LEADER' || newData.val() === 'RIDER'" },
+            "isSweep": { ".validate": "newData.isBoolean()" },
+            "colorArgb": { ".validate": "newData.isNumber()" },
+            "motorcycle": { ".validate": "newData.isString() && newData.val().length <= 60" }
+          }
+        }
+      }
+    },
+
+    // Where everyone is. The most sensitive node in the database.
+    //
+    // Readable only by members of that room, and writable only for yourself: a rider can say where
+    // they are and nothing about where anybody else is. Without the second half, one member of a
+    // ride could plant false positions for the others and the alert engine would faithfully act on
+    // them — announcing that somebody had fallen behind, or crashed.
+    "positions": {
+      "$roomId": {
+        ".read": "auth != null && root.child('rooms').child($roomId).child('members').child(auth.uid).exists()",
+
+        "$riderId": {
+          ".write": "auth != null && $riderId === auth.uid && root.child('rooms').child($roomId).child('members').child(auth.uid).exists()",
+          ".validate": "newData.hasChildren(['lat', 'lon', 'atMillis'])",
+          "lat": { ".validate": "newData.isNumber() && newData.val() >= -90 && newData.val() <= 90" },
+          "lon": { ".validate": "newData.isNumber() && newData.val() >= -180 && newData.val() <= 180" },
+          "atMillis": { ".validate": "newData.isNumber()" },
+          "speedMps": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+          "bearingDeg": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 360" }
+        }
+      }
+    },
+
+    // The ride log. Members read it; members append to it; nobody edits or deletes it.
+    //
+    // Append-only because the log is what the ride summary is built from and what a rider would
+    // look at after an incident. An editable history is not a history.
+    "events": {
+      "$roomId": {
+        ".read": "auth != null && root.child('rooms').child($roomId).child('members').child(auth.uid).exists()",
+        ".indexOn": "at",
+
+        "$eventId": {
+          // Create only: data must not already exist, and the new value must. The second half is
+          // what stops a delete, which Firebase expresses as writing null.
+          ".write": "auth != null && !data.exists() && newData.exists() && root.child('rooms').child($roomId).child('members').child(auth.uid).exists()",
+          // Attributed to whoever wrote it, so no rider can enter events in another's name — a
+          // forged 'crashed' or 'left the ride' is worth preventing.
+          ".validate": "newData.hasChildren(['type', 'at', 'riderId']) && newData.child('riderId').val() === auth.uid",
+          "type": { ".validate": "newData.isString()" },
+          "at": { ".validate": "newData.isNumber()" },
+          "riderId": { ".validate": "newData.isString()" }
+        }
+      }
+    }
+  }
+}

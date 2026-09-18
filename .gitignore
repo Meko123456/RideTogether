@@ -20,3 +20,11 @@ build/
 # Firebase config — never commit (hard rule)
 google-services.json
 GoogleService-Info.plist
+
+# Node modules for the security-rules tests
+tools/rules-tests/node_modules/
+
+# Firebase emulator output
+database-debug.log
+firebase-debug.log
+ui-debug.log

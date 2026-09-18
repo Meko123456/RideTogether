@@ -61,3 +61,30 @@ jobs:
       # stay that way, so the check is here to notice if that changes.
       - name: Link the iOS framework
         run: ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 --stacktrace
+
+  rules:
+    # The security rules are the only thing between a ride and anyone with an account, so they get a
+    # real test run: the Firebase emulator, against the actual rules file. Java is here because the
+    # emulator is a Java process.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tools/rules-tests/package-lock.json
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install
+        working-directory: tools/rules-tests
+        run: npm ci
+
+      - name: Test the database rules
+        working-directory: tools/rules-tests
+        run: npm test

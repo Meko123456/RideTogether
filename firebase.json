@@ -1,0 +1,13 @@
+{
+  "database": {
+    "rules": "database.rules.json"
+  },
+  "emulators": {
+    "database": {
+      "port": 9110
+    },
+    "ui": {
+      "enabled": false
+    }
+  }
+}
