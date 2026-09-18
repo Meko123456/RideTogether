@@ -37,3 +37,20 @@ Each test is written as the sentence a person would say, because that is what a 
   they control and collect the people trying to join the real one.
 - **the closed default** — the root is unreadable and an invented path is unwritable, so a node
   somebody forgets to think about is shut rather than open.
+
+## Checking the tests are not vacuous
+
+A rules test that passes against broken rules is worse than none, because it reads like proof. The
+way to check is to break a rule on purpose and confirm the right tests — and only those — go red.
+
+The one that was used on the way in: change the position write rule to `"auth != null"`, so any
+signed-in user can write anybody's position, and run the suite.
+
+```
+FAIL a rider cannot plant a position for somebody else  --> Expected request to fail, but it succeeded.
+FAIL a stranger cannot plant a position in a ride they are not on  --> Expected request to fail, but it succeeded.
+33 passed, 2 failed
+```
+
+Two failures, both the right ones, and nothing else disturbed. Restore the rule afterwards. Worth
+repeating whenever a rule changes shape rather than only when one is added.
