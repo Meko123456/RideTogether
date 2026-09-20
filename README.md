@@ -49,6 +49,34 @@ or location permission exists.
 197 tests in `:shared`, 23 in `:androidApp` — the engine is driven by synthetic GPS traces, so the interesting
 logic is covered without a device.
 
+## iOS
+
+There is an iOS app, and it runs the same engine the Android one does.
+
+```sh
+cd iosApp && xcodegen generate
+open RideTogether.xcodeproj
+```
+
+The Xcode project is generated from `project.yml` rather than committed, the same way Barati and
+Nishani do it. A pre-build step builds the Kotlin `Shared` framework, so opening and running is the
+whole setup.
+
+**What it does today.** Every decision — who has fallen behind, when that is worth saying out loud,
+what a gap in metres means — comes from `:shared` and is already tested there. The Swift layer keeps
+rider positions, advances a clock and draws what comes back; it owns no rules.
+
+Positions are moved by controls on screen rather than by `CoreLocation`. That is deliberate for this
+first version. A simulated ride exercises the alert engine far harder than a phone on a desk, and it
+makes visible things that are otherwise invisible: that the engine wants a gap to be **growing
+continuously** before it says anything, that a rider parked 2 km back at a steady distance is riding
+their own pace rather than in trouble, and that the designated sweep is exempt because being last is
+their job. Ride time runs at ten times real time so those grace periods play out in seconds.
+
+`CLLocationManager` actuals, MapLibre and background modes are the rest of
+[#15](https://github.com/Meko123456/RideTogether/issues/15), which that issue deliberately sequences
+after Android beta feedback.
+
 ## Architecture
 
 ```
