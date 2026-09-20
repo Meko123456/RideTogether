@@ -76,4 +76,16 @@ data class AlertConfig(
 
     /** The gap below which an existing alert is cleared. */
     val clearThresholdMeters: Double get() = gapThresholdMeters * clearFraction
+
+    companion object {
+        /**
+         * The tuned defaults, as a value.
+         *
+         * `AlertConfig()` already gives these on Kotlin, but Kotlin default arguments do not survive
+         * into the Objective-C header the iOS app compiles against — Swift sees only the
+         * eleven-parameter initialiser and `init()` is unavailable. Without this the iOS side would
+         * have to restate every threshold, which is exactly how two copies of a tuning drift apart.
+         */
+        val Default: AlertConfig = AlertConfig()
+    }
 }

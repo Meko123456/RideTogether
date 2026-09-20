@@ -50,4 +50,15 @@ data class AnnounceConfig(
 
     /** How long a critical line suppresses a repeat of itself. Shorter: it bears repeating. */
     val criticalRepeatWindow: Duration = 2.minutes,
-)
+) {
+    companion object {
+        /**
+         * The tuned defaults, as a value.
+         *
+         * Here for the same reason as [AlertConfig.Default]: Kotlin default arguments do not reach
+         * the Objective-C header, so without this the iOS app would restate these windows and the
+         * two copies would drift.
+         */
+        val Default: AnnounceConfig = AnnounceConfig()
+    }
+}
