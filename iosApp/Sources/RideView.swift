@@ -100,17 +100,22 @@ private struct RiderRow: View {
                 Text(statusText)
                     .font(.subheadline)
                     .foregroundStyle(statusColour)
+                    .accessibilityIdentifier("status-\(member.riderId)")
             }
 
             // Stated in metres as well as by colour: colour alone is not a signal everybody can read.
             Text("\(Int(metresBehind)) m behind\(driftLabel)\(isSilent ? " · not reporting" : "")")
+                .accessibilityIdentifier("gap-\(member.riderId)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 12) {
                 Button("Drop back", action: onDropBack)
+                    .accessibilityIdentifier("dropBack-\(member.riderId)")
                 Button("Catch up", action: onCatchUp)
+                    .accessibilityIdentifier("catchUp-\(member.riderId)")
                 Button(isSilent ? "Restore signal" : "Lose signal", action: onToggleSilent)
+                    .accessibilityIdentifier("signal-\(member.riderId)")
             }
             .buttonStyle(.bordered)
             .font(.caption)

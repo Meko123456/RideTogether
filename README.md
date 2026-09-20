@@ -73,6 +73,12 @@ continuously** before it says anything, that a rider parked 2 km back at a stead
 their own pace rather than in trouble, and that the designated sweep is exempt because being last is
 their job. Ride time runs at ten times real time so those grace periods play out in seconds.
 
+Five UI tests drive the app on a simulator in CI, and two of them go the whole way through the
+engine: a tap makes a rider lose ground, the gap grows past the threshold, the joining and
+separation graces elapse, and "falling behind" comes back out in SwiftUI. Then catching up clears
+it, which also proves the hysteresis is reachable from the UI rather than only from a unit test.
+`xcodebuild test` runs them, and CI runs `test` rather than `build` for exactly that reason.
+
 `CLLocationManager` actuals, MapLibre and background modes are the rest of
 [#15](https://github.com/Meko123456/RideTogether/issues/15), which that issue deliberately sequences
 after Android beta feedback.

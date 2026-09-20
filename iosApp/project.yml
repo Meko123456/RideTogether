@@ -33,3 +33,28 @@ targets:
           cd "$SRCROOT/.."
           export JAVA_HOME="${JAVA_HOME:-/Applications/Android Studio.app/Contents/jbr/Contents/Home}"
           ./gradlew :shared:embedAndSignAppleFrameworkForXcode
+
+  RideTogetherUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: RideTogether
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.meko123456.ridetogether.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.0"
+schemes:
+  RideTogether:
+    build:
+      targets:
+        RideTogether: all
+        RideTogetherUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - RideTogetherUITests
