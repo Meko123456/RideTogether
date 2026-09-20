@@ -55,6 +55,38 @@ final class RideFlowTests: XCTestCase {
         waitForExpectations(timeout: 90)
     }
 
+    func testTheAnnouncerSpeaksAboutARiderWhoseSignalDrops() {
+        // The Announcer is a separate shared component from the alert engine, and nothing else here
+        // would notice if it produced silence, because every status label comes from the engine.
+        //
+        // A lost signal is the right alert to test it with, and the reason is the interesting part.
+        // The falling-behind line is deliberately spoken *only to the rider who dropped back* —
+        // everyone else sees it on screen — and in this simulation you are the leader, who cannot
+        // fall behind themselves. So that line is unreachable here by design rather than by
+        // accident, while a lost signal is announced to everybody.
+        app.buttons["signal-rider-2"].tap()
+
+        // First that the engine noticed, so a failure below points at the announcer rather than
+        // leaving both suspects standing.
+        let status = app.staticTexts["status-rider-2"]
+        expectation(for: NSPredicate(format: "label == %@", "signal lost"), evaluatedWith: status, handler: nil)
+        waitForExpectations(timeout: 60)
+
+        // The announcements sit below the riders, and a SwiftUI List does not build rows it has not
+        // been scrolled to, so they have to be brought on screen before they exist to query.
+        app.swipeUp()
+        app.swipeUp()
+
+        // Asserted on the announcer's own wording rather than on the rider's name: "Dato" is
+        // already on screen as a row heading, so a name match would pass without the announcer
+        // ever running.
+        let spoken = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS %@", "has lost signal")
+        ).firstMatch
+        expectation(for: NSPredicate(format: "exists == true"), evaluatedWith: spoken, handler: nil)
+        waitForExpectations(timeout: 60)
+    }
+
     func testCatchingUpClearsTheAlert() {
         app.buttons["dropBack-rider-2"].tap()
         let status = app.staticTexts["status-rider-2"]
