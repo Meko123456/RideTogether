@@ -162,6 +162,29 @@ final class RideFlowTests: XCTestCase {
         )
     }
 
+    func testPausingTheRideCountsAsStoppedTimeRatherThanRiding() {
+        XCTAssertTrue(app.staticTexts["You"].waitForExistence(timeout: 10), "the app never drew")
+        Thread.sleep(forTimeInterval: 6)
+
+        // A paused group stands where it is, but the clock keeps running, because a fuel stop is
+        // part of the ride. The summariser reads that as stopped time and — past the minute it
+        // insists on before calling a halt a stop, which keeps traffic lights out of the total —
+        // as one stop. Ride time runs at ten to one, so ten real seconds is comfortably clear
+        // of the minute.
+        app.buttons["Paused"].tap()
+        Thread.sleep(forTimeInterval: 10)
+        app.buttons["Ended"].tap()
+        XCTAssertTrue(app.staticTexts["summary-distance"].waitForExistence(timeout: 10))
+
+        let line = labels(of: ["summary-time-rider-1"])["summary-time-rider-1"]
+        XCTAssertNotNil(line, "the leader is missing from the summary")
+        // Split, because these fail for different reasons: the first if standing still was
+        // booked as riding, the second if it was booked as stopped but never long enough to
+        // count — and the two have nothing to do with each other.
+        XCTAssertFalse(line?.contains("0s stopped") ?? true, "the pause was not stopped time: \(line ?? "")")
+        XCTAssertTrue(line?.hasSuffix("· 1 stop") ?? false, "the pause was not one stop: \(line ?? "")")
+    }
+
     // MARK: - helpers
 
     /// Rides for a while, then ends the ride.

@@ -141,7 +141,7 @@ private struct SummaryRow: View {
             Text("avg \(speed(rider.averageMovingSpeedMps)) · top \(speed(rider.maxSpeedMps))")
                 .font(.caption)
                 .accessibilityIdentifier("summary-speed-\(rider.riderId)")
-            Text("\(duration(rider.movingSeconds)) riding · \(duration(rider.stoppedSeconds)) stopped · \(rider.stopCount) stops")
+            Text("\(duration(rider.movingSeconds)) riding · \(duration(rider.stoppedSeconds)) stopped · \(stops(rider.stopCount))")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("summary-time-\(rider.riderId)")
@@ -182,6 +182,12 @@ private func duration(_ seconds: Int64) -> String {
     if minutes > 0 { return "\(minutes)m" }
     // Under a minute reads as "0m" otherwise, which looks like a failure rather than a short ride.
     return "\(seconds)s"
+}
+
+/// "1 stop", not "1 stops". A summary that cannot count to one does not inspire confidence in
+/// the rest of its numbers.
+private func stops(_ count: Int32) -> String {
+    count == 1 ? "1 stop" : "\(count) stops"
 }
 
 private func speed(_ mps: KotlinDouble?) -> String {
