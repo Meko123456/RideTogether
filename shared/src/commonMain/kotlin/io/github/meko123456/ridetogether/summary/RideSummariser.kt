@@ -39,7 +39,12 @@ class RideSummariser(private val config: SummaryConfig = SummaryConfig()) {
         val riders = traces
             .filterValues { it.isNotEmpty() }
             .map { (riderId, points) -> summariseRider(riderId, points) }
-            .sortedByDescending { it.distanceMeters }
+            // Furthest first, with the rider id to break ties. The tie-break is not decoration.
+            // Traces arrive in a map, and a sort that leaves ties where it found them leaves
+            // them wherever the map put them: a Kotlin map at least iterates in insertion order,
+            // but the NSDictionary an iOS caller hands over promises no order at all, so two
+            // riders with matching traces could swap places between one summary and the next.
+            .sortedWith(compareByDescending<RiderSummary> { it.distanceMeters }.thenBy { it.riderId })
 
         val allPoints = traces.values.flatten()
         val startedAt = allPoints.minOfOrNull { it.at }

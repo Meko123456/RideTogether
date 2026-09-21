@@ -31,7 +31,13 @@ data class RiderSummary(
     val stopCount: Int,
     /** Fixes discarded as implausible. Surfaced rather than hidden: a trace with many is suspect. */
     val discardedPoints: Int,
-)
+) {
+    /** [movingDuration] in whole seconds — see [RideSummary.elapsedSeconds] for why. */
+    val movingSeconds: Long get() = movingDuration.inWholeSeconds
+
+    /** [stoppedDuration] in whole seconds — see [RideSummary.elapsedSeconds] for why. */
+    val stoppedSeconds: Long get() = stoppedDuration.inWholeSeconds
+}
 
 /**
  * The ride as a whole.
@@ -49,6 +55,19 @@ data class RideSummary(
     val riders: List<RiderSummary>,
 ) {
     val isEmpty: Boolean get() = riders.isEmpty() || startedAt == null
+
+    /**
+     * [elapsed] in whole seconds, for callers that cannot read a [Duration].
+     *
+     * `kotlin.time.Duration` is a value class, and the Objective-C header an iOS app compiles
+     * against exports it as the packed `rawValue` underneath: an `int64_t` that is neither
+     * seconds nor milliseconds, because the unit it is counting lives in the low bit. Swift can
+     * read the number and cannot say what it means, so a summary crossing the bridge arrives
+     * with three of its fields unusable. Unpacking that encoding on the Swift side would be
+     * copying a stdlib implementation detail into another language; saying it once here is the
+     * honest version, and it is the same trade as [SummaryConfig.Default] next door.
+     */
+    val elapsedSeconds: Long get() = elapsed.inWholeSeconds
 }
 
 /** Tunables for turning a trace into a summary. */
@@ -74,4 +93,19 @@ data class SummaryConfig(
      * of coverage and we cannot claim to know what they did, so the segment is not counted.
      */
     val maxSegmentGap: Duration = 120.seconds,
-)
+) {
+    companion object {
+        /**
+         * The tuned defaults, as a value.
+         *
+         * Here for the same reason as `AlertConfig.Default`: Kotlin default arguments do not
+         * reach the Objective-C header, so Swift sees only the four-parameter initialiser and an
+         * unavailable `init()`. It is worse than usual for this one — two of those four
+         * parameters are [Duration]s, which arrive as their packed `int64_t` encoding, so an iOS
+         * caller could not restate these defaults correctly even if it wanted to. `RideSummariser`
+         * takes a config with no default of its own on that side, so without this there is no way
+         * to construct one at all.
+         */
+        val Default: SummaryConfig = SummaryConfig()
+    }
+}

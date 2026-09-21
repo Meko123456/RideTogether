@@ -3,8 +3,10 @@ import Shared
 
 /// The ride, as the shared engine sees it.
 ///
-/// Three sections, and the order is the order a rider cares about: what the group is doing, who is
-/// in trouble, and what the app would have said out loud.
+/// The order is the order a rider cares about: what the group is doing, who is in trouble, and
+/// what the app would have said out loud. Once the ride has ended the totals go straight under
+/// the state, above the live sections, because at that point they are the only thing left worth
+/// reading.
 struct RideView: View {
     @EnvironmentObject private var ride: RideStore
 
@@ -12,6 +14,9 @@ struct RideView: View {
         NavigationStack {
             List {
                 stateSection
+                if let summary = ride.summary {
+                    SummarySection(summary: summary, nameOf: ride.name(of:))
+                }
                 ridersSection
                 announcementsSection
             }
@@ -76,6 +81,112 @@ struct RideView: View {
             }
         }
     }
+}
+
+/// What the ride was, once it is over.
+///
+/// Every number here is `RideSummary`'s. This view converts metres per second to km/h and metres
+/// to kilometres and does no other arithmetic: which stops counted, what a fix has to imply
+/// before it is thrown away, whether the average should include the time spent stationary — all
+/// of that is `RideSummariser`'s, decided once in Kotlin and already tested there.
+private struct SummarySection: View {
+    let summary: RideSummary
+    let nameOf: (String) -> String
+
+    var body: some View {
+        Section("Ride summary") {
+            if summary.isEmpty {
+                Text("Nothing was recorded. The ride has to run before there is anything to total up.")
+                    .foregroundStyle(.secondary)
+            } else {
+                HStack(alignment: .top) {
+                    Stat(label: "Distance", value: distance(summary.distanceMeters), id: "summary-distance")
+                    Spacer()
+                    Stat(label: "Elapsed", value: duration(summary.elapsedSeconds), id: "summary-elapsed")
+                    Spacer()
+                    Stat(label: "Riders", value: "\(summary.riders.count)", id: "summary-riders")
+                }
+                .padding(.vertical, 4)
+
+                Text("Distance is how far the furthest rider actually rode. Averaging the group " +
+                     "would describe a ride nobody took.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                // In the order the summariser returned them, which is furthest first.
+                ForEach(summary.riders, id: \.riderId) { rider in
+                    SummaryRow(rider: rider, name: nameOf(rider.riderId))
+                }
+            }
+        }
+    }
+}
+
+/// One rider's ride.
+private struct SummaryRow: View {
+    let rider: RiderSummary
+    let name: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(name).font(.headline)
+                Spacer()
+                Text(distance(rider.distanceMeters))
+                    .accessibilityIdentifier("summary-distance-\(rider.riderId)")
+            }
+            // Moving average and stopped time side by side, for the reason RideSummariser gives:
+            // an average that includes the lunch stop reads as though the app mis-measured the
+            // ride, and hiding the stopped time to make the average look better would be worse.
+            Text("avg \(speed(rider.averageMovingSpeedMps)) · top \(speed(rider.maxSpeedMps))")
+                .font(.caption)
+                .accessibilityIdentifier("summary-speed-\(rider.riderId)")
+            Text("\(duration(rider.movingSeconds)) riding · \(duration(rider.stoppedSeconds)) stopped · \(rider.stopCount) stops")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("summary-time-\(rider.riderId)")
+            if rider.discardedPoints > 0 {
+                Text("\(rider.discardedPoints) fixes discarded as implausible, so these numbers are approximate.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("summary-discarded-\(rider.riderId)")
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct Stat: View {
+    let label: String
+    let value: String
+    let id: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value).font(.title3).fontWeight(.semibold).accessibilityIdentifier(id)
+            Text(label).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// Distance the way a rider says it: metres under a kilometre, one decimal above.
+private func distance(_ metres: Double) -> String {
+    metres < 1_000 ? "\(Int(metres)) m" : String(format: "%.1f km", metres / 1_000)
+}
+
+/// `1h 24m`, or `7m` — never `0h 07m`, which reads like a clock rather than a duration.
+private func duration(_ seconds: Int64) -> String {
+    let minutes = seconds / 60
+    let hours = minutes / 60
+    if hours > 0 { return "\(hours)h \(minutes % 60)m" }
+    if minutes > 0 { return "\(minutes)m" }
+    // Under a minute reads as "0m" otherwise, which looks like a failure rather than a short ride.
+    return "\(seconds)s"
+}
+
+private func speed(_ mps: KotlinDouble?) -> String {
+    guard let mps else { return "—" }
+    return "\(Int(mps.doubleValue * 3.6)) km/h"
 }
 
 /// One rider: who they are, what the engine makes of them, and the controls to put them in trouble.

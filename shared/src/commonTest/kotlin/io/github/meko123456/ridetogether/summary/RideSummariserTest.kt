@@ -311,6 +311,21 @@ class RideSummariserTest {
     }
 
     @Test
+    fun `riders who rode the same distance come back in the same order every time`() {
+        // Noticed while putting the summary on an iOS screen. Traces arrive there as an
+        // NSDictionary bridged from a Swift dictionary, which promises no enumeration order at
+        // all, so riders whose distances tie would come back in whatever order the bridge
+        // happened to produce — a different one from run to run, reading as a bug in the numbers
+        // rather than in the sort.
+        fun ride() = steady(speed = 20.0, seconds = 100)
+        val forwards = summariser.summarise("room", mapOf("nino" to ride(), "dato" to ride(), "luka" to ride()))
+        val backwards = summariser.summarise("room", mapOf("luka" to ride(), "dato" to ride(), "nino" to ride()))
+
+        assertEquals(listOf("dato", "luka", "nino"), forwards.riders.map { it.riderId })
+        assertEquals(forwards.riders.map { it.riderId }, backwards.riders.map { it.riderId })
+    }
+
+    @Test
     fun `a fix that reports a riding speed after a silent minute is still stopped time`() {
         // The case that caught this out. A rider parked with reporting slowed to once a minute
         // pulls away, and the first fix says 20 m/s while the bike has not moved at all. Booking

@@ -99,4 +99,108 @@ final class RideFlowTests: XCTestCase {
         expectation(for: NSPredicate(format: "label == %@", "with the group"), evaluatedWith: status, handler: nil)
         waitForExpectations(timeout: 90)
     }
+
+    // MARK: - the ride summary
+
+    func testEndingTheRideSummarisesARideThatActuallyHappened() {
+        rideThenEnd()
+
+        // Split so a failure names one suspect rather than leaving all of them standing: that a
+        // summary appeared at all, that it has a distance, and that the distance is a ride's
+        // worth rather than a single fix.
+        let distance = app.staticTexts["summary-distance"]
+        XCTAssertTrue(distance.waitForExistence(timeout: 10), "ending the ride produced no summary")
+        XCTAssertNotEqual(distance.label, "0 m", "the summariser totalled a ride that never moved")
+        XCTAssertGreaterThan(metres(distance.label), 500, "ride too short: \(distance.label)")
+
+        // Elapsed is the span of the recorded trace, worked out in Kotlin from its first and last
+        // timestamps rather than from any clock Swift is keeping. It is zero unless fixes were
+        // being recorded all the way through the ride instead of at the moment it ended.
+        XCTAssertNotEqual(app.staticTexts["summary-elapsed"].label, "0s", "the trace has no span")
+        XCTAssertEqual(app.staticTexts["summary-riders"].label, "4", "not every rider was summarised")
+    }
+
+    func testTheSummaryGivesEveryRiderTheGroupSpeed() {
+        rideThenEnd()
+        XCTAssertTrue(app.staticTexts["summary-distance"].waitForExistence(timeout: 10))
+
+        // Nobody drops back here, so all four rode the same road at the same speed and the
+        // summariser should say so about each of them. 50 km/h is its own arithmetic over the
+        // trace — ground covered over time spent moving, stops excluded — and not an echo of the
+        // speed the simulation reports, which it only ever uses for the top figure.
+        let riders = ["rider-1", "rider-2", "rider-3", "rider-4"]
+        let speeds = labels(of: riders.map { "summary-speed-\($0)" })
+        for riderId in riders {
+            let row = "summary-speed-\(riderId)"
+            XCTAssertNotNil(speeds[row], "no summary row for \(riderId)")
+            XCTAssertEqual(speeds[row], "avg 50 km/h · top 50 km/h", "wrong speeds for \(riderId)")
+        }
+    }
+
+    func testARiderWhoDroppedBackDidNotRideTheSameRide() {
+        XCTAssertTrue(app.staticTexts["You"].waitForExistence(timeout: 10), "the app never drew")
+        app.buttons["dropBack-rider-2"].tap()
+        Thread.sleep(forTimeInterval: 12)
+        app.buttons["Ended"].tap()
+        XCTAssertTrue(app.staticTexts["summary-distance"].waitForExistence(timeout: 10))
+
+        let found = labels(of: ["summary-distance", "summary-distance-rider-1", "summary-distance-rider-2"])
+        XCTAssertNotNil(found["summary-distance-rider-1"], "the leader is missing from the summary")
+        XCTAssertNotNil(found["summary-distance-rider-2"], "the dropped rider is missing from the summary")
+
+        // Per-rider distances are per-rider: the one who spent the ride losing ground covered
+        // less of it, which no summary echoing a single group figure could show.
+        XCTAssertNotEqual(
+            found["summary-distance-rider-2"], found["summary-distance-rider-1"],
+            "both riders were credited with the same distance"
+        )
+        // And the ride's own distance is the furthest any single rider rode — the leader's —
+        // rather than an average of the two, which would describe a ride nobody took.
+        XCTAssertEqual(
+            found["summary-distance"], found["summary-distance-rider-1"],
+            "the ride's distance is not the furthest rider's"
+        )
+    }
+
+    // MARK: - helpers
+
+    /// Rides for a while, then ends the ride.
+    ///
+    /// The wait is for elapsed time rather than for an event, which is deliberate: the thing
+    /// being waited on *is* the ride happening. The group covers 140 m of road per tick and ticks
+    /// once a second, so twelve seconds is well over a kilometre and the totals that follow are
+    /// answers rather than zeros.
+    private func rideThenEnd(seconds: TimeInterval = 12) {
+        XCTAssertTrue(app.staticTexts["You"].waitForExistence(timeout: 10), "the app never drew")
+        Thread.sleep(forTimeInterval: seconds)
+        app.buttons["Ended"].tap()
+    }
+
+    /// Reads the labels of several elements, scrolling down until it has them.
+    ///
+    /// Two things force the sweep. A SwiftUI `List` does not build rows it has not been scrolled
+    /// to, so anything below the fold does not exist to query until it has been. And the rider
+    /// rows come back in the order `RideSummary` sorted them into — furthest first — which for a
+    /// group that all rode the same distance is not an order a test can predict, so looking for
+    /// each row where it ought to be would scroll straight past the ones out of place.
+    private func labels(of identifiers: [String], swipes: Int = 6) -> [String: String] {
+        var found: [String: String] = [:]
+        for _ in 0...swipes {
+            for id in identifiers where found[id] == nil {
+                let element = app.staticTexts[id]
+                if element.exists { found[id] = element.label }
+            }
+            if found.count == identifiers.count { break }
+            app.swipeUp()
+        }
+        return found
+    }
+
+    /// `1.5 km` or `340 m` back to metres, so an assertion can be about the size of the ride
+    /// rather than about how it happened to round.
+    private func metres(_ label: String) -> Double {
+        let parts = label.split(separator: " ")
+        let value = Double(parts.first ?? "") ?? 0
+        return parts.last == "km" ? value * 1_000 : value
+    }
 }

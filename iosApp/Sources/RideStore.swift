@@ -19,11 +19,19 @@ final class RideStore: ObservableObject {
     /// Who this phone is. The announcer says different things about you than about everybody else.
     private let selfId = "rider-1"
 
+    private let roomId = "sunday-run"
+
     private lazy var session = RideSession(
         selfId: selfId,
         alertConfig: AlertConfig.companion.Default,
         announceConfig: AnnounceConfig.companion.Default
     )
+
+    /// Turns the recorded traces into the ride summary. Also shared, also already tested there:
+    /// every judgement call in a summary — that the average excludes stops, that a fix implying
+    /// 270 km/h is a glitch and not a rider, that nothing can be claimed across a two-minute hole
+    /// in coverage — is `RideSummariser`'s, and none of it is restated here.
+    private let summariser = RideSummariser(config: SummaryConfig.companion.Default)
 
     private let members: [Member] = [
         Member(riderId: "rider-1", displayName: "You", role: Role.leader, isSweep: false, colorArgb: nil, motorcycle: nil),
@@ -52,6 +60,9 @@ final class RideStore: ObservableObject {
     @Published private(set) var silent: Set<String> = []
 
     @Published private(set) var roomState: RoomState = RoomState.riding
+
+    /// The finished ride, once there is one. Nil while it is still going.
+    @Published private(set) var summary: RideSummary?
     @Published private(set) var assessments: [RiderAssessment] = []
     @Published private(set) var announcements: [Announcement] = []
     @Published private(set) var alertCount = 0
@@ -69,12 +80,40 @@ final class RideStore: ObservableObject {
     /// timings are untouched.
     private let rideSecondsPerTick: TimeInterval = 10
 
+    /// How far the front of the group has got along the road, in metres.
+    ///
+    /// The group used to stand still. `metresBehind` is measured from the leader, and with the
+    /// leader as the origin nobody's coordinates ever changed — which is all the alert engine
+    /// needs, since it only ever looks at the gaps between riders, but it means every trace is
+    /// one point repeated and a summary of it is a column of zeros. The group rides now. Because
+    /// everyone advances by the same amount every tick the gaps are untouched, so the engine sees
+    /// exactly the ride it saw before.
+    private var metresRidden: Double = 0
+
+    /// What the group rides at, in metres per second — 14 m/s is a little over 50 km/h.
+    private let groupSpeedMps: Double = 14
+
+    /// What each rider's phone last actually sent, and the ride second it sent it.
+    ///
+    /// A phone that has stopped reporting does not send a stale fix, it sends nothing at all, and
+    /// the engine keeps reading the last one it did get. Freezing the whole sample rather than
+    /// only its timestamp matters now that the group moves: a frozen clock on a position that
+    /// kept advancing is a reading no real device produces.
+    private var reported: [String: (sample: RiderSample, at: TimeInterval)] = [:]
+
+    /// Where each rider was at the end of the previous tick, for working out how fast they went.
+    private var lastAlong: [String: Double] = [:]
+
+    /// What each phone reported, in order, once each. The summary is built from exactly this and
+    /// nothing else — it is the record a real app would keep, and a rider who goes quiet leaves
+    /// a hole in theirs rather than a straight line through it.
+    private var trace: [String: [TracePoint]] = [:]
+
     private var elapsed: TimeInterval = 0
-    private var lastSeen: [String: TimeInterval] = [:]
     private var timer: Timer?
 
     func start() {
-        members.forEach { lastSeen[$0.riderId] = 0 }
+        members.forEach { lastAlong[$0.riderId] = -(metresBehind[$0.riderId] ?? 0) }
         advance()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.advance() }
@@ -85,7 +124,14 @@ final class RideStore: ObservableObject {
 
     // MARK: - controls
 
-    func setState(_ state: RoomState) { roomState = state; advance() }
+    func setState(_ state: RoomState) {
+        roomState = state
+        advance()
+        // Summarised once, on the way into ENDED, rather than on every tick. Nothing is added to
+        // a trace after the ride is over, so the answer cannot change, and republishing an
+        // identical summary once a second would rebuild the screen for nothing.
+        summary = state == RoomState.ended ? summariser.summarise(roomId: roomId, traces: trace) : nil
+    }
 
     /// Start losing ground, keep losing it until told otherwise.
     func dropBack(_ riderId: String) {
@@ -113,8 +159,18 @@ final class RideStore: ObservableObject {
 
     /// Advances one second and asks the shared engine what it makes of the result.
     private func advance() {
-        elapsed += rideSecondsPerTick
-        rideSeconds = Int(elapsed)
+        // Ride time runs while the ride does. It used to run always, which nothing noticed until
+        // the summary went on screen beside it and the two numbers disagreed: a clock still
+        // counting up next to a finished ride's total is two answers to one question.
+        if roomState.sharesLocation {
+            elapsed += rideSecondsPerTick
+            rideSeconds = Int(elapsed)
+        }
+        // Ground, though, is only covered while actually riding. A paused group stands where it
+        // is, which is the stopped time the summary reports separately from the average.
+        if roomState == RoomState.riding {
+            metresRidden += groupSpeedMps * rideSecondsPerTick
+        }
 
         for member in members where member.riderId != selfId {
             let moved = (metresBehind[member.riderId] ?? 0) + (drift[member.riderId] ?? 0)
@@ -127,17 +183,44 @@ final class RideStore: ObservableObject {
         var samples: [String: RiderSample] = [:]
         for member in members {
             let id = member.riderId
-            // A silent rider keeps the position and the timestamp it last reported, so the gap
-            // between that and `now` is what the engine reads as a stale signal.
-            if !silent.contains(id) { lastSeen[id] = elapsed }
-            let seenAt = lastSeen[id] ?? elapsed
-            samples[id] = RiderSample(
+            let along = metresRidden - (metresBehind[id] ?? 0)
+            // Speed is what this rider actually did this tick, not a constant. The summary
+            // believes the reported figure — `maxSpeedMps` prefers it, because an instantaneous
+            // reading is what a top speed wants — so a rider crawling backwards through the
+            // group while their phone insists on 50 km/h would finish the ride with a top speed
+            // they never rode.
+            let speedMps = max(0, along - (lastAlong[id] ?? along)) / rideSecondsPerTick
+            lastAlong[id] = along
+
+            let fresh = RiderSample(
                 riderId: id,
-                location: position(metresBehind: metresBehind[id] ?? 0),
-                speedMps: KotlinFloat(value: silent.contains(id) ? 0 : 14),
-                at: instant(at: seenAt),
+                location: position(metresAlong: along),
+                speedMps: KotlinFloat(value: Float(speedMps)),
+                at: now,
                 reportingInterval: nil
             )
+            // Nothing arrives from a phone that has gone quiet, so the engine goes on reading the
+            // last sample that did arrive, and the growing distance between its timestamp and
+            // `now` is what it reads as a lost signal.
+            let stale = silent.contains(id) ? reported[id] : nil
+            samples[id] = stale?.sample ?? fresh
+
+            guard stale == nil else { continue }
+            reported[id] = (sample: fresh, at: elapsed)
+
+            // Recorded once per fix, and only while the room is sharing location. A rider who
+            // went quiet therefore leaves a hole in their trace rather than a run of duplicates
+            // — which is the coverage gap `RideSummariser` refuses to draw a straight line
+            // across, reached through the button that causes it rather than fabricated.
+            if roomState.sharesLocation {
+                trace[id, default: []].append(
+                    TracePoint(
+                        at: fresh.at,
+                        location: fresh.location,
+                        speedMps: KotlinDouble(value: Double(speedMps))
+                    )
+                )
+            }
         }
 
         let result = session.tick(
@@ -166,9 +249,9 @@ final class RideStore: ObservableObject {
     ///
     /// A straight line is enough: the engine measures along a route when it has one and falls back
     /// to straight-line distance when it does not, and this first version supplies no route.
-    private func position(metresBehind: Double) -> LatLng {
+    private func position(metresAlong: Double) -> LatLng {
         let metresPerDegree = 111_320.0
-        return LatLng(latitude: 41.7 - metresBehind / metresPerDegree, longitude: 44.8)
+        return LatLng(latitude: 41.7 + metresAlong / metresPerDegree, longitude: 44.8)
     }
 
     private func instant(at seconds: TimeInterval) -> Kotlinx_datetimeInstant {
