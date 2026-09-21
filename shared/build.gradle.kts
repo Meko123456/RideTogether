@@ -9,7 +9,7 @@ plugins {
 }
 
 kotlin {
-    androidLibrary {
+    android {
         namespace = "io.github.meko123456.ridetogether.shared"
         compileSdk = 37
         minSdk = 26
