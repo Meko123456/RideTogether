@@ -1,6 +1,6 @@
 [versions]
 agp = "9.4.1"
-kotlin = "2.4.10"
+kotlin = "2.4.20"
 kotlinxSerialization = "1.9.0"
 kotlinxDatetime = "0.6.2"
 kotlinxCoroutines = "1.10.2"
