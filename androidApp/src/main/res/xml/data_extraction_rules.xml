@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12 and later. Everything is backed up and transferred except the rider's sign-in
+  session, which belongs to this install: carried to another phone it would make two phones one
+  rider. See PreferencesAuthSessionStore.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="ridetogether-auth.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="ridetogether-auth.xml" />
+    </device-transfer>
+</data-extraction-rules>
