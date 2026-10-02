@@ -11,11 +11,9 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.meko123456.ridetogether.android.crash.CrashMonitor
 import io.github.meko123456.ridetogether.android.location.RideLocation
 import io.github.meko123456.ridetogether.android.speech.RideSpeaker
-import io.github.meko123456.ridetogether.realtime.InMemoryRealtimeClient
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.meko123456.ridetogether.model.JoinCode
-import io.github.meko123456.ridetogether.android.RiderIdentity
 import io.github.meko123456.ridetogether.model.QuickMessage
 import io.github.meko123456.ridetogether.model.RideEvent
 import io.github.meko123456.ridetogether.session.RideSession
@@ -49,16 +47,15 @@ import kotlin.random.Random
  * join is allowed, what a code resolves to — is delegated to `:shared`, which is the module the
  * tests cover. This class only holds the current room and turns rejections into sentences.
  *
- * Everything to do with rooms now goes through [RealtimeClient]. Today that is the in-memory
- * implementation, so a code still only resolves against rides created on this device — but the
- * *shape* is the real one: rooms arrive as a flow, positions arrive from the client rather than
- * straight off the phone's own sensor, and writes can fail with a reason. Swapping Firebase in
- * (#10) changes the construction of `client` and nothing in this class.
+ * Everything to do with rooms goes through [RealtimeClient]: rooms arrive as a flow, positions
+ * arrive from the client rather than straight off the phone's own sensor, and writes can fail with
+ * a reason. Which client that is, Firebase or this phone's memory, the build decides (#10), and
+ * nothing in this class knows or cares.
  */
 class RideViewModel(
     /**
-     * The backend. In-memory for now — see #10. Held as the interface type deliberately, so
-     * nothing here can reach for a capability the real implementation will not have.
+     * The backend. Held as the interface type deliberately, so nothing here can reach for a
+     * capability one implementation has and the other does not.
      */
     private val client: RealtimeClient,
     private val speaker: Voice,
@@ -264,7 +261,7 @@ class RideViewModel(
                     }
                     val joined = client.join(
                         roomId = target.id,
-                        member = Member(riderId = riderId, displayName = "You"),
+                        member = Member(riderId = riderId, displayName = client.selfName),
                         now = Clock.System.now(),
                     )
                     when (joined) {
@@ -562,11 +559,11 @@ class RideViewModel(
          * Builds the real thing. The only place the platform implementations are named, so the
          * view model itself stays free of them and the tests can pass fakes.
          */
-        fun factory(application: android.app.Application): ViewModelProvider.Factory =
+        fun factory(application: android.app.Application, client: RealtimeClient): ViewModelProvider.Factory =
             viewModelFactory {
                 initializer {
                     RideViewModel(
-                        client = InMemoryRealtimeClient(selfId = RiderIdentity.self),
+                        client = client,
                         speaker = RideSpeaker(application).also { it.configure() },
                         history = RideHistory(application),
                         ownLocation = RideLocation,

@@ -71,7 +71,12 @@ data class Member(
     val isSweep: Boolean = false,
     val colorArgb: Int? = null,
     val motorcycle: String? = null,
-)
+) {
+    companion object {
+        /** The longest [displayName] the database rules accept (database.rules.json). */
+        const val MAX_NAME_LENGTH = 40
+    }
+}
 
 /**
  * A ride room. [route] is the leader's planned polyline when one was set — the alert engine

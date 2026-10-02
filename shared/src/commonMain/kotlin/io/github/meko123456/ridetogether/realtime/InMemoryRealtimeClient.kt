@@ -38,6 +38,8 @@ import kotlinx.datetime.Instant
  */
 class InMemoryRealtimeClient(
     override val selfId: String,
+    /** "You", because on this backend the only one who ever sees it is the rider themselves. */
+    override val selfName: String = "You",
     /** Flip to simulate losing the network. Every call then fails with [RealtimeError.OFFLINE]. */
     var online: Boolean = true,
 ) : RealtimeClient {
@@ -67,7 +69,7 @@ class InMemoryRealtimeClient(
             // permission check goes through the *member's* role. Getting this wrong meant the
             // creator of a ride could not start it — the state machine refused with
             // NOT_PERMITTED, which is exactly right given what it was told.
-            members = listOf(Member(riderId = selfId, displayName = "You", role = Role.LEADER)),
+            members = listOf(Member(riderId = selfId, displayName = selfName, role = Role.LEADER)),
             createdAt = now,
         )
         flowFor(room.id).value = room

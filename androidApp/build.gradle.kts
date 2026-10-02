@@ -1,6 +1,24 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
+}
+
+/**
+ * The Firebase project rides go through (#10), if this build has one: each setting from the
+ * environment, else from local.properties, which git ignores. Never from a committed file, since a
+ * project is whoever deploys the app's to give. With no database URL the app keeps its in-memory
+ * backend, on which a ride exists only on the phone that made it. See the README.
+ */
+val firebaseSettings: Map<String, String> = run {
+    val local = Properties()
+    providers.fileContents(rootProject.layout.projectDirectory.file("local.properties"))
+        .asText.orNull?.let { local.load(it.reader()) }
+    listOf("DATABASE_URL", "DATABASE_NAMESPACE", "API_KEY", "AUTH_EMULATOR_HOST").associateWith { name ->
+        val key = "RIDETOGETHER_FIREBASE_$name"
+        providers.environmentVariable(key).orNull ?: local.getProperty(key).orEmpty()
+    }
 }
 
 android {
@@ -13,6 +31,11 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0-dev"
+
+        firebaseSettings.forEach { (name, value) ->
+            val literal = value.replace("\\", "\\\\").replace("\"", "\\\"")
+            buildConfigField("String", "FIREBASE_$name", "\"$literal\"")
+        }
     }
 
     buildTypes {
@@ -30,6 +53,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     lint {

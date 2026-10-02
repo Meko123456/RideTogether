@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -26,11 +27,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.meko123456.ridetogether.alerts.RiderSample
 import io.github.meko123456.ridetogether.android.location.RideLocation
 import io.github.meko123456.ridetogether.android.location.RideLocationService
+import io.github.meko123456.ridetogether.android.ui.ConnectingScreen
+import io.github.meko123456.ridetogether.android.ui.ConnectionViewModel
 import io.github.meko123456.ridetogether.android.ui.HomeScreen
 import io.github.meko123456.ridetogether.android.ui.LocationDisclosure
+import io.github.meko123456.ridetogether.android.ui.NameScreen
 import io.github.meko123456.ridetogether.android.ui.RideViewModel
 import io.github.meko123456.ridetogether.android.ui.RoomScreen
+import io.github.meko123456.ridetogether.android.ui.UnreachableScreen
 import io.github.meko123456.ridetogether.android.ui.theme.RideTogetherTheme
+import io.github.meko123456.ridetogether.realtime.RealtimeClient
 import io.github.meko123456.ridetogether.room.JoinPolicy
 
 class MainActivity : ComponentActivity() {
@@ -48,119 +54,139 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             RideTogetherTheme {
-                val vm: RideViewModel = viewModel(factory = RideViewModel.factory(application))
-                val snackbarHostState = remember { SnackbarHostState() }
-
-                // An invite prefills the code field rather than joining silently: the rider
-                // should see which ride they are about to enter before they are in it.
-                LaunchedEffect(pendingCode) {
-                    pendingCode?.let {
-                        vm.onInviteReceived(it)
-                        pendingCode = null
-                    }
+                val connection: ConnectionViewModel = viewModel()
+                when (val state = connection.state) {
+                    is ConnectionViewModel.State.Ready -> RideApp(state.client)
+                    ConnectionViewModel.State.NeedsName ->
+                        Gate { NameScreen(onSubmit = connection::submitName, modifier = it) }
+                    ConnectionViewModel.State.Connecting -> Gate { ConnectingScreen(modifier = it) }
+                    ConnectionViewModel.State.Unreachable ->
+                        Gate { UnreachableScreen(onRetry = connection::retry, modifier = it) }
                 }
+            }
+        }
+    }
 
-                LaunchedEffect(vm.notice) {
-                    vm.notice?.let {
-                        snackbarHostState.showSnackbar(it)
-                        vm.consumeNotice()
-                    }
-                }
+    /** The screens before there is a backend: nothing to announce yet, only the insets to keep clear of. */
+    @Composable
+    private fun Gate(content: @Composable (Modifier) -> Unit) {
+        Scaffold { insets -> content(Modifier.padding(insets)) }
+    }
 
-                val locationGranted = remember(permissionTick) { hasLocationPermission() }
-                // Both permissions, because Android 12+ refuses a FINE-only request when the
-                // rider picks Approximate — and then reports the outcome per permission, so
-                // "approximate only" is distinguishable from a flat refusal.
-                val requestLocation = rememberLauncherForActivityResult(
-                    ActivityResultContracts.RequestMultiplePermissions(),
-                ) { result ->
-                    permissionTick++
-                    val fine = result[Manifest.permission.ACCESS_FINE_LOCATION] == true
-                    val coarse = result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-                    when {
-                        fine -> Unit
-                        coarse -> vm.onApproximateLocationOnly()
-                        else -> vm.onDisclosureDeclined()
-                    }
-                }
+    /** The app proper, once there is a backend to ride through and a rider [client] writes as. */
+    @Composable
+    private fun RideApp(client: RealtimeClient) {
+        val vm: RideViewModel = viewModel(factory = RideViewModel.factory(application, client))
+        val snackbarHostState = remember { SnackbarHostState() }
 
-                if (vm.showLocationDisclosure) {
-                    LocationDisclosure(
-                        onContinue = {
-                            vm.onDisclosureAccepted()
-                            requestLocation.launch(
-                                arrayOf(
-                                    Manifest.permission.ACCESS_FINE_LOCATION,
-                                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                                ),
-                            )
-                        },
-                        onDismiss = vm::onDisclosureDeclined,
+        // An invite prefills the code field rather than joining silently: the rider
+        // should see which ride they are about to enter before they are in it.
+        LaunchedEffect(pendingCode) {
+            pendingCode?.let {
+                vm.onInviteReceived(it)
+                pendingCode = null
+            }
+        }
+
+        LaunchedEffect(vm.notice) {
+            vm.notice?.let {
+                snackbarHostState.showSnackbar(it)
+                vm.consumeNotice()
+            }
+        }
+
+        val locationGranted = remember(permissionTick) { hasLocationPermission() }
+        // Both permissions, because Android 12+ refuses a FINE-only request when the
+        // rider picks Approximate — and then reports the outcome per permission, so
+        // "approximate only" is distinguishable from a flat refusal.
+        val requestLocation = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions(),
+        ) { result ->
+            permissionTick++
+            val fine = result[Manifest.permission.ACCESS_FINE_LOCATION] == true
+            val coarse = result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+            when {
+                fine -> Unit
+                coarse -> vm.onApproximateLocationOnly()
+                else -> vm.onDisclosureDeclined()
+            }
+        }
+
+        if (vm.showLocationDisclosure) {
+            LocationDisclosure(
+                onContinue = {
+                    vm.onDisclosureAccepted()
+                    requestLocation.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
+                        ),
                     )
-                }
+                },
+                onDismiss = vm::onDisclosureDeclined,
+            )
+        }
 
-                val room = vm.room
-                val roomState = room?.state
+        val room = vm.room
+        val roomState = room?.state
 
-                // The service follows the room state, and is started only from here — a
-                // composition that is on screen. Android refuses a background start for a
-                // location-typed service, and this app is built never to need one.
-                LaunchedEffect(roomState, locationGranted) {
-                    when {
-                        roomState == null -> RideLocationService.stop(this@MainActivity)
-                        !roomState.sharesLocation ->
-                            RideLocationService.syncWith(this@MainActivity, roomState)
-                        locationGranted ->
-                            RideLocationService.syncWith(this@MainActivity, roomState)
-                        vm.needsDisclosure(permissionGranted = false) -> vm.requestDisclosure()
-                        // Asked once and refused: the ride runs, just without this rider's pin.
-                        else -> Unit
-                    }
-                }
+        // The service follows the room state, and is started only from here — a
+        // composition that is on screen. Android refuses a background start for a
+        // location-typed service, and this app is built never to need one.
+        LaunchedEffect(roomState, locationGranted) {
+            when {
+                roomState == null -> RideLocationService.stop(this@MainActivity)
+                !roomState.sharesLocation ->
+                    RideLocationService.syncWith(this@MainActivity, roomState)
+                locationGranted ->
+                    RideLocationService.syncWith(this@MainActivity, roomState)
+                vm.needsDisclosure(permissionGranted = false) -> vm.requestDisclosure()
+                // Asked once and refused: the ride runs, just without this rider's pin.
+                else -> Unit
+            }
+        }
 
-                val ownFix by RideLocation.own.collectAsState()
-                val interval by RideLocation.interval.collectAsState()
-                val collecting by RideLocation.running.collectAsState()
+        val ownFix by RideLocation.own.collectAsState()
+        val interval by RideLocation.interval.collectAsState()
+        val collecting by RideLocation.running.collectAsState()
 
-                Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { insets ->
-                    if (room == null) {
-                        HomeScreen(
-                            rideName = vm.rideName,
-                            codeInput = vm.codeInput,
-                            resolvedCode = vm.resolvedCode,
-                            onRideNameChange = vm::onRideNameChange,
-                            onCodeInputChange = vm::onCodeInputChange,
-                            onCreateRide = vm::createRide,
-                            onJoinRide = vm::joinByCode,
-                            rides = vm.rides,
-                            modifier = Modifier.padding(insets),
-                        )
-                    } else {
-                        RoomScreen(
-                            room = room,
-                            onCommand = vm::send,
-                            onToggleSweep = vm::toggleSweep,
-                            onAddDemoRider = vm::addDemoRider,
-                            onShare = ::shareInvite,
-                            onBack = vm::leaveRoom,
-                            locationLine = locationLine(collecting, locationGranted, ownFix, interval),
-                            voiceLine = vm.voiceStatus(),
-                            feed = vm.feed,
-                            onSendMessage = vm::send,
-                            onSimulateMessage = vm::simulateMessageFromAnother,
-                            summary = vm.lastSummary,
-                            onDismissSummary = vm::dismissSummary,
-                            positions = vm.positions,
-                            assessments = vm.assessments,
-                            selfId = vm.selfId,
-                            crashSignal = vm.crashSignal,
-                            onCancelCrash = vm::cancelCrashCountdown,
-                            onAcknowledgeCrash = vm::acknowledgeCrash,
-                            onSimulateImpact = vm::simulateImpact,
-                            modifier = Modifier.padding(insets),
-                        )
-                    }
-                }
+        Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { insets ->
+            if (room == null) {
+                HomeScreen(
+                    rideName = vm.rideName,
+                    codeInput = vm.codeInput,
+                    resolvedCode = vm.resolvedCode,
+                    onRideNameChange = vm::onRideNameChange,
+                    onCodeInputChange = vm::onCodeInputChange,
+                    onCreateRide = vm::createRide,
+                    onJoinRide = vm::joinByCode,
+                    rides = vm.rides,
+                    modifier = Modifier.padding(insets),
+                )
+            } else {
+                RoomScreen(
+                    room = room,
+                    onCommand = vm::send,
+                    onToggleSweep = vm::toggleSweep,
+                    onAddDemoRider = vm::addDemoRider,
+                    onShare = ::shareInvite,
+                    onBack = vm::leaveRoom,
+                    locationLine = locationLine(collecting, locationGranted, ownFix, interval),
+                    voiceLine = vm.voiceStatus(),
+                    feed = vm.feed,
+                    onSendMessage = vm::send,
+                    onSimulateMessage = vm::simulateMessageFromAnother,
+                    summary = vm.lastSummary,
+                    onDismissSummary = vm::dismissSummary,
+                    positions = vm.positions,
+                    assessments = vm.assessments,
+                    selfId = vm.selfId,
+                    crashSignal = vm.crashSignal,
+                    onCancelCrash = vm::cancelCrashCountdown,
+                    onAcknowledgeCrash = vm::acknowledgeCrash,
+                    onSimulateImpact = vm::simulateImpact,
+                    modifier = Modifier.padding(insets),
+                )
             }
         }
     }

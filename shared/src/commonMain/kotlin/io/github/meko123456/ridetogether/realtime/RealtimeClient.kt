@@ -34,6 +34,9 @@ interface RealtimeClient {
     /** Who this client is acting as. Every write is attributed to them. */
     val selfId: String
 
+    /** What the other riders call [selfId]: the name on every member row this client writes. */
+    val selfName: String
+
     // ─────────────────────────────── rooms
 
     /** Creates a room and returns it, or the reason it could not be created. */

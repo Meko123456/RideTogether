@@ -21,6 +21,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+      Rides go through Firebase when the build has a project (#10), and the map draws tiles from the
+      network. MapLibre's manifest happens to declare this too, but the realtime client should not
+      depend on what a map library brings with it.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"

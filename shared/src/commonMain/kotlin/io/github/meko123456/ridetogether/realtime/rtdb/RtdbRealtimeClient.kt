@@ -88,8 +88,7 @@ fun interface RtdbCredentials {
  */
 class RtdbRealtimeClient(
     override val selfId: String,
-    /** The name other riders see, on the member row this client writes when it creates a room. */
-    private val selfName: String,
+    override val selfName: String,
     private val database: RtdbDatabase,
     private val credentials: RtdbCredentials,
     private val http: HttpClient,
