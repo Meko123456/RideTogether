@@ -85,6 +85,17 @@ class RtdbWireTest {
     }
 
     @Test
+    fun `a room size the domain cannot hold reads as no room instead of throwing`() {
+        // Room's constructor requires 2..10. The rules say the same, but the decoder must not be
+        // the place a bad value from the wire turns into a crash.
+        val huge = buildJsonObject {
+            RtdbWire.encodeMeta(room).forEach { (k, v) -> if (k != "maxRiders") put(k, v) }
+            put("maxRiders", 50)
+        }
+        assertNull(RtdbWire.decodeRoom("room-1", huge, null))
+    }
+
+    @Test
     fun `a member row without a valid role is left out rather than guessed`() {
         val raw = Json.parseToJsonElement(
             """{"a":{"displayName":"Ana","role":"RIDER"},"x":{"displayName":"Ghost","role":"ADMIN"},"y":{"role":"RIDER"}}""",

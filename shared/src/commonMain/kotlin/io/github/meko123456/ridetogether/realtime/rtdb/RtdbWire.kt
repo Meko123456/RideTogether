@@ -74,7 +74,8 @@ internal object RtdbWire {
         val code = m.string("code")?.takeIf(JoinCode::isValid)?.let(::JoinCode) ?: return null
         val name = m.string("name") ?: return null
         val state = m.string("state")?.let { enumOrNull<RoomState>(it) } ?: return null
-        val maxRiders = m.int("maxRiders") ?: return null
+        // Room's constructor throws outside this range, so it is checked here, not trusted.
+        val maxRiders = m.int("maxRiders")?.takeIf { it in Room.MIN_RIDERS..Room.MAX_RIDERS } ?: return null
         val leaderId = m.string("leaderId") ?: return null
         val createdAt = m.long("createdAt")?.let(Instant::fromEpochMilliseconds) ?: return null
         return Room(
