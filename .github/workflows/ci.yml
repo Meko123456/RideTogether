@@ -115,7 +115,8 @@ jobs:
   rules:
     # The security rules are the only thing between a ride and anyone with an account, so they get a
     # real test run: the Firebase emulator, against the actual rules file. Java is here because the
-    # emulator is a Java process.
+    # emulator is a Java process. The realtime client is tested here too, against the same emulator
+    # and the same rules, since what matters is the two of them together.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -138,6 +139,28 @@ jobs:
       - name: Test the database rules
         working-directory: tools/rules-tests
         run: npm test
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Test the realtime client against the emulator
+        run: >
+          tools/rules-tests/node_modules/.bin/firebase emulators:exec --only database
+          "./gradlew :shared:testAndroidHostTest --tests '*RtdbEmulatorTest*' --stacktrace"
+
+      # Outside emulators:exec these tests skip, and a task that skipped everything still ends
+      # BUILD SUCCESSFUL. So the report is read, and the job fails unless they all actually ran.
+      - name: Check the emulator tests ran rather than skipped
+        run: |
+          python3 - <<'PY'
+          import glob, re, sys
+          totals = {"tests": 0, "skipped": 0, "failures": 0, "errors": 0}
+          for path in glob.glob("shared/build/test-results/testAndroidHostTest/*RtdbEmulatorTest*.xml"):
+              head = open(path).read(2000)
+              for key in totals:
+                  totals[key] += int(re.search(rf'{key}="(\d+)"', head).group(1))
+          print(totals)
+          sys.exit(0 if totals["tests"] > 0 and totals["skipped"] == totals["failures"] == totals["errors"] == 0 else 1)
+          PY
 
   release-launches:
     # Building the release proves R8 ran, not that the result starts. On 30 September 2026 three
