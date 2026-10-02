@@ -217,14 +217,16 @@ showing them what they are joining first. The extra tap is the consent.
 
 ---
 
-## 13. Rooms live in memory until the realtime layer lands
+## 13. Rooms live in memory when a build has no Firebase project
 
-**Code:** `RideViewModel` holds a map of rooms; a code resolves only against rides created on this
-device, and there is a visible "add a rider (demo)" button.
+**Code:** with no `RIDETOGETHER_FIREBASE_DATABASE_URL`, the app runs on `InMemoryRealtimeClient`. A
+code resolves only to rides created on this phone, and the room screen offers a demo rider and a
+pretend message, so a ride can be started, and heard, on one device.
 
-**Why:** it keeps the UI honest and exercises the real `JoinPolicy` path while issue #10 is open,
-rather than mocking the domain. Both go away with Firebase behind `RealtimeClient` — the interface
-exists so that swap does not reach the engine.
+**Why:** it began as the stand-in while issue #10 was open, and it stays because a build without a
+project should still run, through the real `JoinPolicy` and state machine, rather than stop at the
+first screen. The demo affordances appear on this backend only: on a shared one the other riders
+are real, and the rules would refuse a pretend one anyway.
 
 ---
 
@@ -397,8 +399,8 @@ exceed the maximum, and if it does the estimators have drifted apart again.
 
 **Spec §3.5** describes Firebase Realtime Database sync, and issue #10 is the work of building it.
 
-**Code:** `realtime/RealtimeClient.kt` is the interface, `InMemoryRealtimeClient` is the only
-implementation so far, and it is written in terms of the domain's own types.
+**Code:** `realtime/RealtimeClient.kt` is the interface, written in terms of the domain's own types.
+`InMemoryRealtimeClient` was its only implementation until #10 added `RtdbRealtimeClient` (21).
 
 **Why:** the alert engine, the announcer, the location policy and the summariser are all pure and
 tested, and the fastest way to lose that is to let a networking library's types reach into the
@@ -463,6 +465,87 @@ back to them is talking for the sake of it.
 boundary drawn with the type system is only as good as the paths that cross it, and "nothing can
 reach this" and "this can reach nothing" are different claims. The first was wanted; the second was
 what got built.
+
+---
+
+## 21. Firebase over REST and its streaming API, not the Firebase SDKs
+
+**Spec §3.5** describes Firebase Realtime Database sync, and Phase 0 assumes the platform SDKs
+and their config files.
+
+**Code:** `RtdbRealtimeClient`, in `commonMain`, speaks the database's REST API and reads its
+server-sent-event streams over Ktor. `FirebaseAnonymousAuth` signs riders in through the Auth REST
+API. There is no Firebase SDK and no `google-services.json`: a build is given a database URL and an
+API key (README, Setup).
+
+**Why:** one client, written once, for both apps. The SDKs are per platform and Kotlin
+Multiplatform has no official one, so using them would mean two implementations of
+`RealtimeClient` that could drift apart, or a third-party wrapper. Plain HTTP is also testable
+anywhere: `RtdbEmulatorTest` runs this exact client against the emulators in CI, with the repo's
+rules loaded. And there is no config file to keep out of git.
+
+**Cost:** what the SDK does for free is written and tested here instead: reopening a dropped
+stream with backoff, refreshing an ID token before it expires, and a read timeout that outlasts
+the stream's keep-alive (OkHttp's 10-second default would drop a quiet room's stream, which only
+sends one every 30). The SDK's offline cache and write queue are not reproduced; see 24. Going back
+means two platform implementations behind the same interface, and nothing above it changes.
+
+The layout extends the spec's as well. `codes/` maps a join code to a room, because a code has to
+resolve before you are a member of anything. Members sit beside `meta` rather than inside it, so
+the rules can show a room's details to anyone signed in and its riders only to each other.
+Positions and the log are kept per room, at `positions/` and `events/`.
+
+---
+
+## 22. A rider is an anonymous identity per install, and a name
+
+**Spec Phase 0:** anonymous auth.
+
+**Code:** the first launch of a build with a project asks one question, "What should the group
+call you?", and signs in anonymously. The uid is the rider's id everywhere: the member row, the
+positions, the log, and what the rules check. The session is kept in a preferences file of its
+own, excluded from backups and device transfers. Later launches refresh it, or, with no connection,
+open as the rider they were.
+
+**Why:** a ride needs a stable id per phone more than it needs accounts. Stable is the point: a
+new uid mid-ride makes the rider a stranger to the room they are in. Leaving the session out of
+backups keeps "per install" true, because restored onto a second phone it would make two phones
+one rider, each writing over the other's position. Only the first launch needs a connection, since
+a new identity is the server's to give.
+
+**Cost:** a rider who reinstalls, or whose anonymous account the project deletes, becomes a new
+rider and rejoins by code. Accounts would fix that, at the price of asking for more than a name.
+
+---
+
+## 23. Joining a ride shows its log but does not read it out
+
+**Code:** every rider's events, this phone's own included, reach the app through the client's log
+stream, and each is ticked through the announcer once. Whatever is already in the log when the
+phone starts following a room is shown in the feed and not spoken.
+
+**Why:** the headset is one channel (17). Joining a ride half an hour in should not play back
+every "slow down" sent before you arrived, while the feed still shows what happened. Sending this
+phone's own events through the same stream means every phone sees one log in one order, and the
+announcer already declines to read your own message back to you.
+
+---
+
+## 24. Nothing is queued while offline
+
+**Spec §3.6:** outgoing location updates queue locally when offline, and flush on reconnect.
+
+**Code:** a position that cannot be sent is dropped, and the next fix goes in its place. A quick
+message that cannot be sent says "Not sent: no connection." rather than going later.
+
+**Why:** a position is only ever worth its latest value, which the spec concedes in "send only
+latest", and the next fix is due within seconds; the trace for the ride summary is kept on the
+phone either way. A message is time-bound in a way a queue would hide: "pull over" arriving ten
+minutes late, after the group has moved on, is worse than a rider knowing it did not go and
+saying it again.
+
+**Cost to reverse:** a queue in front of `publishEvent`, with an expiry short enough that nothing
+is delivered after it has stopped being true.
 
 ---
 
