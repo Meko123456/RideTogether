@@ -37,7 +37,7 @@ or location permission exists.
 | Android app shell (create + join a ride, room controls, invite links) | ✅ |
 | Live map (MapLibre + OpenFreeMap vector tiles) | ✅ |
 | Foreground-service location + adaptive intervals | ✅ |
-| Realtime sync — interface + in-memory implementation | 🟡 Firebase pending |
+| Realtime sync — Firebase Realtime Database over REST and streaming, anonymous sign-in | ✅ Android, run against the emulators |
 | Crash detection — sensors, countdown, spoken warning | ✅ |
 | Adaptive location intervals + kill switch | ✅ mutation-tested |
 | Audio-first announcement policy (what is spoken, and what is not) | ✅ mutation-tested |
@@ -46,7 +46,7 @@ or location permission exists.
 | Quick messages, ride log + TTS through a helmet headset | ✅ |
 | iOS app — shared framework links and its tests pass; no app yet | 🟡 phase 2 |
 
-197 tests in `:shared`, 23 in `:androidApp` — the engine is driven by synthetic GPS traces, so the interesting
+229 tests in `:shared`, plus 11 that run the realtime client against the Firebase emulators, and 24 in `:androidApp` — the engine is driven by synthetic GPS traces, so the interesting
 logic is covered without a device.
 
 ## iOS
@@ -114,7 +114,7 @@ requests `ACCESS_BACKGROUND_LOCATION`, and what Play requires regardless.
 
 ## Setup
 
-There is nothing to configure yet — the core builds and tests with no accounts or keys:
+Nothing needs configuring to build and test. The core builds and tests with no accounts or keys:
 
 ```sh
 ./gradlew :shared:testAndroidHostTest :androidApp:assembleDebug
@@ -127,8 +127,52 @@ than aspirational (needs macOS + Xcode):
 ./gradlew :shared:iosSimulatorArm64Test
 ```
 
-When realtime sync lands it will need a Firebase project of your own. `google-services.json`
-is **git-ignored and must never be committed**; the README will carry the setup steps.
+### Riding through Firebase
+
+With no settings the app keeps rides in memory, so a ride exists only on the phone that made it.
+To ride through Firebase, give the build a project. Each setting is read from the environment, or
+else from `local.properties`, which git ignores. Nothing project-specific is ever committed, and
+there is no `google-services.json`: the app talks to Firebase over REST.
+
+| Setting | What it is |
+|---|---|
+| `RIDETOGETHER_FIREBASE_DATABASE_URL` | the Realtime Database, `https://<name>.<region>.firebasedatabase.app` |
+| `RIDETOGETHER_FIREBASE_API_KEY` | the project's Web API key (Project settings → General) |
+| `RIDETOGETHER_FIREBASE_DATABASE_NAMESPACE` | emulators only: the database name |
+| `RIDETOGETHER_FIREBASE_AUTH_EMULATOR_HOST` | emulators only: `host:port` of the Auth emulator |
+
+The project needs Anonymous sign-in turned on (Authentication → Sign-in method) and this repo's
+rules deployed (`firebase deploy --only database`). The app asks a rider for a name and signs them
+in anonymously, and that is all: no account, no email.
+
+#### Against the emulators
+
+No project needed. Start the emulators with the repo's rules:
+
+```sh
+(cd tools/rules-tests && npm ci)
+tools/rules-tests/node_modules/.bin/firebase emulators:start --project demo-ridetogether --only database,auth
+```
+
+Then build a debug app that points at them. `10.0.2.2` is the development machine as an Android
+emulator sees it, and debug builds may use plain http to it; release builds may not:
+
+```sh
+RIDETOGETHER_FIREBASE_DATABASE_URL=http://10.0.2.2:9110 \
+RIDETOGETHER_FIREBASE_DATABASE_NAMESPACE=demo-ridetogether-default-rtdb \
+RIDETOGETHER_FIREBASE_API_KEY=demo-key \
+RIDETOGETHER_FIREBASE_AUTH_EMULATOR_HOST=10.0.2.2:9099 \
+./gradlew :androidApp:installDebug
+```
+
+From a phone on USB, `adb reverse tcp:9110 tcp:9110 && adb reverse tcp:9099 tcp:9099` and use
+`localhost` instead of `10.0.2.2`. The realtime client's own tests run against the same emulators,
+as CI does:
+
+```sh
+tools/rules-tests/node_modules/.bin/firebase emulators:exec --project demo-ridetogether \
+  --only database,auth "./gradlew :shared:testAndroidHostTest --tests '*RtdbEmulatorTest*'"
+```
 
 ## License
 
