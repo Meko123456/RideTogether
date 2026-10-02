@@ -38,11 +38,12 @@ import org.junit.Assume.assumeTrue
  * RtdbRealtimeClient against the Firebase database emulator, with the repo's own
  * database.rules.json loaded, so what is tested is the client and the rules together.
  *
- * Runs only under `firebase emulators:exec --only database`, which sets
- * FIREBASE_DATABASE_EMULATOR_HOST; anywhere else every test is skipped. CI runs it in the rules job:
+ * Runs only under `firebase emulators:exec`, which sets FIREBASE_DATABASE_EMULATOR_HOST (and, with
+ * the Auth emulator, FIREBASE_AUTH_EMULATOR_HOST); anywhere else every test is skipped. From the repo
+ * root, as CI's rules job does:
  *
- *     cd tools/rules-tests && ./node_modules/.bin/firebase emulators:exec --only database \
- *       "cd ../.. && ./gradlew :shared:testAndroidHostTest --tests '*RtdbEmulatorTest*'"
+ *     tools/rules-tests/node_modules/.bin/firebase emulators:exec --project demo-ridetogether \
+ *       --only database,auth "./gradlew :shared:testAndroidHostTest --tests '*RtdbEmulatorTest*'"
  */
 class RtdbEmulatorTest {
 
@@ -207,6 +208,39 @@ class RtdbEmulatorTest {
             assertEquals(listOf("riderUid"), seen.members.filter { it.isSweep }.map { it.riderId })
         }
         assertEquals(RealtimeError.NOT_PERMITTED, rider.setSweep(room.id, "leaderUid", now).errorOrNull)
+    }
+
+    @Test
+    fun `riders signed in anonymously by the Auth emulator can make and join a ride`() = runBlocking<Unit> {
+        // The whole chain a phone will use: an anonymous sign-in, its uid as the rider's id, and its
+        // ID token on every request, accepted by the same rules as everything above.
+        val authHost = System.getenv("FIREBASE_AUTH_EMULATOR_HOST")
+        assumeTrue("needs the auth emulator too: emulators:exec --only database,auth", authHost != null)
+        fun anonymous() = FirebaseAnonymousAuth(
+            apiKey = "demo-key",
+            http = http,
+            store = object : AuthSessionStore {
+                var kept: AuthSession? = null
+                override suspend fun load() = kept
+                override suspend fun save(session: AuthSession) { kept = session }
+            },
+            endpoints = FirebaseAuthEndpoints.emulator(authHost!!),
+        )
+        val leaderAuth = anonymous()
+        val riderAuth = anonymous()
+        val leaderUid = leaderAuth.uid()!!
+        val riderUid = riderAuth.uid()!!
+        assertTrue(leaderUid != riderUid, "two installs, two riders")
+
+        val database = RtdbDatabase("http://$host", namespace)
+        val realLeader = RtdbRealtimeClient(leaderUid, "Merab", database, leaderAuth, http)
+        val realRider = RtdbRealtimeClient(riderUid, "Ana", database, riderAuth, http)
+        val room = realLeader.createRoom("Sunday run", code(), now).value()
+        realRider.join(room.id, Member(riderUid, "Ana"), now).value()
+        withTimeout(15.seconds) {
+            val seen = realLeader.observeRoom(room.id).first { it?.members?.size == 2 }!!
+            assertEquals(setOf(leaderUid, riderUid), seen.members.map { it.riderId }.toSet())
+        }
     }
 
     @Test

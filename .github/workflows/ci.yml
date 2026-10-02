@@ -142,9 +142,12 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      - name: Test the realtime client against the emulator
+      # The Auth emulator as well, for the end-to-end test of anonymous sign-in. It will not start
+      # without a project; a demo- project is the offline kind, which needs no real one and no login.
+      - name: Test the realtime client against the emulators
         run: >
-          tools/rules-tests/node_modules/.bin/firebase emulators:exec --only database
+          tools/rules-tests/node_modules/.bin/firebase emulators:exec --project demo-ridetogether
+          --only database,auth
           "./gradlew :shared:testAndroidHostTest --tests '*RtdbEmulatorTest*' --stacktrace"
 
       # Outside emulators:exec these tests skip, and a task that skipped everything still ends

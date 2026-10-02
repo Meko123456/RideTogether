@@ -57,5 +57,9 @@ tasks.withType<Test>().configureEach {
         "firebaseDatabaseEmulatorHost",
         providers.environmentVariable("FIREBASE_DATABASE_EMULATOR_HOST").orElse(""),
     )
+    inputs.property(
+        "firebaseAuthEmulatorHost",
+        providers.environmentVariable("FIREBASE_AUTH_EMULATOR_HOST").orElse(""),
+    )
     inputs.file(rootProject.file("database.rules.json")).withPropertyName("databaseRules")
 }
