@@ -262,8 +262,8 @@ class RideLocationService : Service() {
         private const val CHANNEL_ID = "ride-location"
         private const val NOTIFICATION_ID = 7
 
-        /** Stands in for the signed-in rider until accounts land. */
-        val SELF_ID = RiderIdentity.SELF
+        /** Read at every fix rather than kept, so a fix is always published as who this phone is now. */
+        val SELF_ID: String get() = RiderIdentity.self
 
         const val ACTION_START = "io.github.meko123456.ridetogether.LOCATION_START"
         const val ACTION_ROOM_STATE = "io.github.meko123456.ridetogether.LOCATION_ROOM_STATE"

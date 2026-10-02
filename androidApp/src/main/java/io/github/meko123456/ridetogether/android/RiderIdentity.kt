@@ -9,8 +9,23 @@ package io.github.meko123456.ridetogether.android
  * room, so this phone would vanish from its own map while everything else carried on working.
  * That is a bad failure to debug and a trivial one to prevent.
  *
- * When accounts land this becomes the signed-in user's id, and there is exactly one line to change.
+ * With a shared backend (#10) the id is no longer a constant: it is whoever this install signed in
+ * as, known only once the backend has said so. [self] holds it for the one part of the app that
+ * cannot be handed it, the location service, which Android constructs. Everything else takes it
+ * from the [io.github.meko123456.ridetogether.realtime.RealtimeClient] it writes through, which
+ * can only write as one rider and so cannot disagree with itself.
  */
 object RiderIdentity {
-    const val SELF = "me"
+
+    /** The rider on the in-memory backend, where nobody else can see them anyway. */
+    const val ON_THIS_PHONE = "me"
+
+    /** Who this phone is right now. Set before any ride can start, and the same for its length. */
+    @Volatile
+    var self: String = ON_THIS_PHONE
+        private set
+
+    fun becomes(riderId: String) {
+        self = riderId
+    }
 }

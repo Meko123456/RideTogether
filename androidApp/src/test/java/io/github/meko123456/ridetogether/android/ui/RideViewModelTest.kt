@@ -8,6 +8,7 @@ import io.github.meko123456.ridetogether.model.LatLng
 import io.github.meko123456.ridetogether.model.QuickMessage
 import io.github.meko123456.ridetogether.model.RoomState
 import io.github.meko123456.ridetogether.realtime.InMemoryRealtimeClient
+import io.github.meko123456.ridetogether.realtime.RealtimeClient
 import io.github.meko123456.ridetogether.room.RoomCommand
 import java.io.File
 import java.nio.file.Files
@@ -72,13 +73,12 @@ class RideViewModelTest {
     private val location = FakeLocation()
     private val crash = FakeCrash()
 
-    private fun viewModel() = RideViewModel(
+    private fun viewModel(client: RealtimeClient = this.client) = RideViewModel(
         client = client,
         speaker = voice,
         history = RideHistory(File(directory, "history.json")),
         ownLocation = location,
         crash = crash,
-        riderId = "me",
     )
 
     @BeforeTest fun setUp() = Dispatchers.setMain(dispatcher)
@@ -109,6 +109,19 @@ class RideViewModelTest {
 
         assertEquals(RoomState.RIDING, vm.room?.state)
         assertNull(vm.notice, "no rejection: ${vm.notice}")
+    }
+
+    @Test
+    fun `the rider is whoever the client writes as`() = runTest(dispatcher) {
+        // With a shared backend the id is the uid this install signed in as, not "me", and a
+        // client can only ever write as that one rider. Taking the id from the client means the
+        // ride is led by, and the session speaks for, the rider the backend will accept writes from.
+        val vm = viewModel(client = InMemoryRealtimeClient(selfId = "uid-7f3a"))
+        assertEquals("uid-7f3a", vm.selfId)
+        vm.createRide()
+        advanceUntilIdle()
+        assertEquals("uid-7f3a", vm.room?.leaderId)
+        assertEquals(listOf("uid-7f3a"), vm.room?.members?.map { it.riderId })
     }
 
     @Test

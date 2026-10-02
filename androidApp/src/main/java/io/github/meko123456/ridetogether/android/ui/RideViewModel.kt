@@ -65,9 +65,13 @@ class RideViewModel(
     private val history: RideHistory,
     private val ownLocation: OwnLocation,
     private val crash: CrashDetection,
-    /** Stands in for the signed-in rider until accounts land. */
-    private val riderId: String = RiderIdentity.SELF,
 ) : ViewModel() {
+
+    /** Who this phone is: whoever the client writes as, so the two can never disagree. */
+    private val riderId: String = client.selfId
+
+    /** The same, for the map, which marks this phone's own position differently. */
+    val selfId: String get() = riderId
 
     /** Only the demo affordances need the concrete type, and only to fake other riders. */
     private val fakeOthers: io.github.meko123456.ridetogether.realtime.InMemoryRealtimeClient?
@@ -562,7 +566,7 @@ class RideViewModel(
             viewModelFactory {
                 initializer {
                     RideViewModel(
-                        client = InMemoryRealtimeClient(selfId = RiderIdentity.SELF),
+                        client = InMemoryRealtimeClient(selfId = RiderIdentity.self),
                         speaker = RideSpeaker(application).also { it.configure() },
                         history = RideHistory(application),
                         ownLocation = RideLocation,

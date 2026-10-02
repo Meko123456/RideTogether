@@ -152,7 +152,7 @@ class MainActivity : ComponentActivity() {
                             onDismissSummary = vm::dismissSummary,
                             positions = vm.positions,
                             assessments = vm.assessments,
-                            selfId = RiderIdentity.SELF,
+                            selfId = vm.selfId,
                             crashSignal = vm.crashSignal,
                             onCancelCrash = vm::cancelCrashCountdown,
                             onAcknowledgeCrash = vm::acknowledgeCrash,
