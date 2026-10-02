@@ -111,6 +111,14 @@ async function run() {
     "a position off the globe is rejected",
     assertFails(set(ref(db(RIDER), `positions/${ROOM}/${RIDER}`), { lat: 999, lon: 44.8, atMillis: 1 })),
   );
+  await check(
+    "a position can say how often its rider is reporting",
+    assertSucceeds(set(ref(db(RIDER), `positions/${ROOM}/${RIDER}`), { ...sample(1756000003000), intervalMillis: 5000 })),
+  );
+  await check(
+    "a reporting interval of zero is rejected, since staleness is measured against it",
+    assertFails(set(ref(db(RIDER), `positions/${ROOM}/${RIDER}`), { ...sample(1756000003000), intervalMillis: 0 })),
+  );
 
   // ─────────────── who may control the ride
   console.log("\nroom control — leader and co-leader, which is what the domain says");

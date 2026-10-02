@@ -102,7 +102,10 @@
           "lon": { ".validate": "newData.isNumber() && newData.val() >= -180 && newData.val() <= 180" },
           "atMillis": { ".validate": "newData.isNumber()" },
           "speedMps": { ".validate": "newData.isNumber() && newData.val() >= 0" },
-          "bearingDeg": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 360" }
+          "bearingDeg": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 360" },
+          // How often this rider is reporting. Every other phone judges this rider stale against
+          // it, so a zero or negative interval would make them stale at once or never.
+          "intervalMillis": { ".validate": "newData.isNumber() && newData.val() > 0" }
         }
       }
     },
