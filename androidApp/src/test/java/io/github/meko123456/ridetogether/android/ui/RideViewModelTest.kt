@@ -27,6 +27,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -122,6 +123,25 @@ class RideViewModelTest {
         advanceUntilIdle()
         assertEquals("uid-7f3a", vm.room?.leaderId)
         assertEquals(listOf("uid-7f3a"), vm.room?.members?.map { it.riderId })
+    }
+
+    @Test
+    fun `only rides that stay on this phone get the demo riders and that explanation`() = runTest(dispatcher) {
+        val onThisPhone = viewModel()
+        assertTrue(onThisPhone.ridesStayOnThisPhone)
+        onThisPhone.onCodeInputChange("ZZZZZZ")
+        onThisPhone.joinByCode()
+        advanceUntilIdle()
+        assertTrue(onThisPhone.notice?.contains("keeps rides on this phone") == true, "was ${onThisPhone.notice}")
+
+        // Any other client is a shared backend: real riders, so no pretend ones, and an unknown
+        // code is simply unknown.
+        val shared = viewModel(client = object : RealtimeClient by InMemoryRealtimeClient(selfId = "uid-1") {})
+        assertFalse(shared.ridesStayOnThisPhone)
+        shared.onCodeInputChange("ZZZZZZ")
+        shared.joinByCode()
+        advanceUntilIdle()
+        assertEquals("No ride found for ZZZZZZ.", shared.notice)
     }
 
     @Test

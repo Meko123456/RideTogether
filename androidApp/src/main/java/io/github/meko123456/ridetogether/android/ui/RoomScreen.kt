@@ -54,14 +54,16 @@ fun RoomScreen(
     room: Room,
     onCommand: (RoomCommand) -> Unit,
     onToggleSweep: (String) -> Unit,
-    onAddDemoRider: () -> Unit,
+    /** Null where the riders are real: see [RideViewModel.ridesStayOnThisPhone]. */
+    onAddDemoRider: (() -> Unit)?,
     onShare: (String) -> Unit,
     onBack: () -> Unit,
     locationLine: String,
     voiceLine: String,
     feed: List<RideEvent>,
     onSendMessage: (QuickMessage) -> Unit,
-    onSimulateMessage: (QuickMessage) -> Unit,
+    /** Null where the riders are real, as for [onAddDemoRider]. */
+    onSimulateMessage: ((QuickMessage) -> Unit)?,
     summary: StoredRide?,
     onDismissSummary: () -> Unit,
     positions: Map<String, RiderSample>,
@@ -163,15 +165,19 @@ fun RoomScreen(
                 )
                 room.members.forEachIndexed { index, member ->
                     if (index > 0) HorizontalDivider()
-                    MemberRow(member = member, onClick = { onToggleSweep(member.riderId) })
+                    MemberRow(
+                        name = shownName(member, selfId),
+                        member = member,
+                        onClick = { onToggleSweep(member.riderId) },
+                    )
                 }
-                if (!room.isFull) {
+                if (onAddDemoRider != null && !room.isFull) {
                     HorizontalDivider()
                     TextButton(
                         onClick = onAddDemoRider,
                         modifier = Modifier.padding(horizontal = 8.dp),
                     ) {
-                        Text("Add a rider (demo — until the network layer lands)")
+                        Text("Add a demo rider")
                     }
                 }
                 Text(
@@ -235,8 +241,19 @@ private fun StatusCard(room: Room) {
     }
 }
 
+/**
+ * A rider's name as this phone shows it. Its own row says so, because on a shared backend that row
+ * carries the rider's real name and could be anyone's; on this phone alone it is already "You".
+ */
+internal fun shownName(member: Member, selfId: String): String =
+    if (member.riderId == selfId && !member.displayName.equals("You", ignoreCase = true)) {
+        "${member.displayName} (you)"
+    } else {
+        member.displayName
+    }
+
 @Composable
-private fun MemberRow(member: Member, onClick: () -> Unit) {
+private fun MemberRow(name: String, member: Member, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -246,7 +263,7 @@ private fun MemberRow(member: Member, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column {
-            Text(member.displayName, style = MaterialTheme.typography.bodyLarge)
+            Text(name, style = MaterialTheme.typography.bodyLarge)
             val duty = buildList {
                 when (member.role) {
                     Role.LEADER -> add("Leader")
@@ -311,7 +328,7 @@ private fun Controls(room: Room, onCommand: (RoomCommand) -> Unit) {
 private fun MessagesCard(
     enabled: Boolean,
     onSend: (QuickMessage) -> Unit,
-    onSimulate: (QuickMessage) -> Unit,
+    onSimulate: ((QuickMessage) -> Unit)?,
     onSimulateImpact: () -> Unit,
     voiceLine: String,
 ) {
@@ -333,17 +350,20 @@ private fun MessagesCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Text(
-                "Your own messages are never read back to you, so hearing the voice needs a " +
-                    "message from someone else — which the network layer will bring. Until then:",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            TextButton(
-                onClick = { onSimulate(QuickMessage.PULL_OVER_NEXT_SAFE_SPOT) },
-                enabled = enabled,
-            ) {
-                Text("Hear a message from another rider (demo)")
+            if (onSimulate != null) {
+                Text(
+                    "Your own messages are never read back to you, so hearing the voice needs a " +
+                        "message from someone else, and in this build nobody else is in the ride. " +
+                        "To hear one anyway:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(
+                    onClick = { onSimulate(QuickMessage.PULL_OVER_NEXT_SAFE_SPOT) },
+                    enabled = enabled,
+                ) {
+                    Text("Hear a message from another rider (demo)")
+                }
             }
             TextButton(onClick = onSimulateImpact, enabled = enabled) {
                 Text("Simulate an impact (demo)")

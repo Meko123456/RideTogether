@@ -74,6 +74,13 @@ class RideViewModel(
     private val fakeOthers: io.github.meko123456.ridetogether.realtime.InMemoryRealtimeClient?
         get() = client as? io.github.meko123456.ridetogether.realtime.InMemoryRealtimeClient
 
+    /**
+     * Whether rides stay on this phone, as they do on the in-memory backend. Only then do the demo
+     * affordances belong on screen: on a shared backend the other riders are real, and a pretend
+     * one could not be written there anyway.
+     */
+    val ridesStayOnThisPhone: Boolean get() = fakeOthers != null
+
     private var roomWatch: Job? = null
     private var positionWatch: Job? = null
 
@@ -255,8 +262,12 @@ class RideViewModel(
                 is RealtimeResult.Success -> {
                     val target = found.value
                     if (target == null) {
-                        notice = "No ride found for ${code.value}. Codes resolve over the network, " +
-                            "which isn't wired up yet — for now you can reopen a ride created on this phone."
+                        notice = if (ridesStayOnThisPhone) {
+                            "No ride found for ${code.value}. This build keeps rides on this phone, " +
+                                "so only a code made here can be found."
+                        } else {
+                            "No ride found for ${code.value}."
+                        }
                         return@launch
                     }
                     val joined = client.join(
@@ -387,7 +398,8 @@ class RideViewModel(
 
     /**
      * Adds a synthetic rider so the room lifecycle can be exercised on one phone — a ride needs
-     * two riders before it can start. Goes away with the realtime layer.
+     * two riders before it can start. Only where [ridesStayOnThisPhone]: anywhere else there are
+     * real riders to start one with.
      */
     fun addDemoRider() {
         val current = room ?: return
@@ -417,7 +429,7 @@ class RideViewModel(
     }
 
     /**
-     * Stands in for another rider messaging the room until the realtime layer lands. Exists
+     * Stands in for another rider messaging the room, where [ridesStayOnThisPhone]. Exists
      * because the announcer deliberately never reads your own message back to you, so without
      * a second rider there is no way to hear the audio path work at all.
      */
