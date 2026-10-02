@@ -75,6 +75,16 @@ class FirebaseAnonymousAuth(
     /** The rider's uid, signing in first if this install never has. Null when it cannot be reached. */
     suspend fun uid(): String? = lock.withLock { current()?.uid }
 
+    /**
+     * The uid this install last signed in as, without asking anyone. Null only if it never has.
+     *
+     * For a launch with no connection: the rider is still who they were, and their app should
+     * still open as them, even though nothing they send can be proved until the network is back.
+     * [uid] is the one to prefer when there is a connection, because only it notices an identity
+     * the server has since refused.
+     */
+    suspend fun knownUid(): String? = lock.withLock { token?.uid ?: store.load()?.uid }
+
     override suspend fun idToken(): String? = lock.withLock { current()?.idToken }
 
     private suspend fun current(): Token? {

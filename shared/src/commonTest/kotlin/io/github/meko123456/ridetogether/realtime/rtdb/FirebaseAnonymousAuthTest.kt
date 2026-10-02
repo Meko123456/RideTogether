@@ -92,6 +92,15 @@ class FirebaseAnonymousAuthTest {
         }
         assertEquals("u2", auth.uid())
         assertEquals(AuthSession("u2", "r2"), store.session)
+        assertEquals("u2", auth.knownUid(), "and from then on that is who the rider is")
+    }
+
+    @Test
+    fun `who the rider is is known without a connection once they have signed in`() = runTest {
+        val offline = auth(MemoryStore(AuthSession("u1", "r1"))) { throw IllegalStateException("no network") }
+        assertEquals("u1", offline.knownUid())
+        assertEquals(emptyList(), requests.map { it.url.toString() }, "knowing is not asking")
+        assertNull(auth(MemoryStore()) { throw IllegalStateException("no network") }.knownUid(), "never signed in")
     }
 
     @Test
