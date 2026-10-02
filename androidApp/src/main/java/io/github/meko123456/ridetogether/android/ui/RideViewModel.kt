@@ -83,6 +83,10 @@ class RideViewModel(
 
     private var roomWatch: Job? = null
     private var positionWatch: Job? = null
+    private var logWatch: Job? = null
+
+    /** Every log entry already handed to the session, so that each is ticked exactly once. */
+    private val heard = mutableSetOf<RideEvent>()
 
     private val session = RideSession(selfId = riderId)
 
@@ -127,15 +131,12 @@ class RideViewModel(
                 // Through the session, so the announcer decides what is spoken — including the
                 // countdown, which was silent until a run on a device showed the card appearing
                 // and saying nothing. A rider who may have come off cannot read a screen.
-                tickSession(
-                    events = if (signal is CrashSignal.CrashConfirmed) {
-                        listOf(RideEvent.PossibleIncident(signal.at, riderId, signal.location))
-                            .also { feed = (it + feed).take(MAX_FEED) }
-                    } else {
-                        emptyList()
-                    },
-                    crashSignals = listOf(signal),
-                )
+                // A confirmed crash also goes into the room's log, so the group's feed shows it. It
+                // is not spoken from there; what this phone says comes from the signal itself.
+                if (signal is CrashSignal.CrashConfirmed) {
+                    room?.let { publish(it.id, RideEvent.PossibleIncident(signal.at, riderId, signal.location)) }
+                }
+                tickSession(events = emptyList(), crashSignals = listOf(signal))
             }
         }
     }
@@ -292,6 +293,7 @@ class RideViewModel(
         val current = room
         roomWatch?.cancel()
         positionWatch?.cancel()
+        logWatch?.cancel()
         room = null
         feed = emptyList()
         trace.clear()
@@ -310,6 +312,7 @@ class RideViewModel(
     private fun watch(roomId: String) {
         roomWatch?.cancel()
         positionWatch?.cancel()
+        logWatch?.cancel()
         roomWatch = viewModelScope.launch {
             client.observeRoom(roomId).collect { updated ->
                 if (updated == null && room != null) {
@@ -322,6 +325,14 @@ class RideViewModel(
         }
         positionWatch = viewModelScope.launch {
             client.observePositions(roomId).collect { positions -> onPositions(positions) }
+        }
+        heard.clear()
+        logWatch = viewModelScope.launch {
+            var history = true
+            client.observeEvents(roomId).collect { log ->
+                onLog(log, history)
+                history = false
+            }
         }
         // This phone's own fixes go *to* the client and come back through the flow above, which is
         // exactly the path they will take once there is a network in between.
@@ -363,10 +374,14 @@ class RideViewModel(
         when (transition) {
             is RoomTransition.Accepted -> {
                 viewModelScope.launch {
-                    val result = client.setState(current.id, transition.to, now)
-                    if (result is RealtimeResult.Failure) notice = describe(result.error)
+                    when (val result = client.setState(current.id, transition.to, now)) {
+                        // Into the log only once the room has really changed, so no rider is told
+                        // the ride is under way when the backend refused to start it.
+                        is RealtimeResult.Success ->
+                            publish(current.id, RideEvent.StateChanged(now, riderId, transition.from, transition.to))
+                        is RealtimeResult.Failure -> notice = describe(result.error)
+                    }
                 }
-                record(RideEvent.StateChanged(now, riderId, transition.from, transition.to))
                 if (transition.to == RoomState.ENDED) {
                     // Nothing should still be talking about a ride that is over.
                     speaker.stop()
@@ -424,8 +439,14 @@ class RideViewModel(
             notice = "Messages are for a ride in progress."
             return
         }
-        record(RideEvent.Message(Clock.System.now(), riderId, message))
-        notice = "Sent: ${message.text}"
+        publish(
+            roomId = current.id,
+            event = RideEvent.Message(Clock.System.now(), riderId, message),
+            onSent = { notice = "Sent: ${message.text}" },
+            onFailed = { error ->
+                notice = if (error == RealtimeError.OFFLINE) "Not sent: no connection." else describe(error)
+            },
+        )
     }
 
     /**
@@ -439,25 +460,53 @@ class RideViewModel(
             notice = "Add a rider first — a message from yourself is not read back to you."
             return
         }
-        record(RideEvent.Message(Clock.System.now(), other.riderId, message))
+        // Written straight into the in-memory backend, which takes an event in anyone's name, so it
+        // arrives the way a real rider's message would: through the log.
+        val fakes = fakeOthers ?: return
+        viewModelScope.launch {
+            fakes.publishEvent(current.id, RideEvent.Message(Clock.System.now(), other.riderId, message))
+        }
     }
 
     /**
-     * Runs one session tick and speaks whatever comes out. Called after anything that could
-     * produce an announcement, rather than on a timer: without the realtime layer there are no
-     * incoming positions, so nothing changes unless this app changed it.
+     * Adds [event] to the room's log, for every rider. It is not shown or spoken here: it comes back
+     * through [onLog] like everyone else's, so this phone and the others see one log in one order.
      */
-    private fun record(event: RideEvent) {
-        feed = (listOf(event) + feed).take(MAX_FEED)
-        tickSession(listOf(event))
+    private fun publish(
+        roomId: String,
+        event: RideEvent,
+        onSent: () -> Unit = {},
+        onFailed: (RealtimeError) -> Unit = {},
+    ) {
+        viewModelScope.launch {
+            when (val result = client.publishEvent(roomId, event)) {
+                is RealtimeResult.Success -> onSent()
+                is RealtimeResult.Failure -> onFailed(result.error)
+            }
+        }
+    }
+
+    /**
+     * The room's log as the client reports it: every rider's events, this phone's included, oldest
+     * first. Shown newest first, and each new entry ticked through the session once, which is where
+     * another rider's message becomes something said in the headset.
+     *
+     * Whatever was already there when this phone started following the room is [history]: shown,
+     * not read out. Joining a ride should not replay every message sent before you arrived.
+     */
+    private fun onLog(log: List<RideEvent>, history: Boolean) {
+        feed = log.asReversed().take(MAX_FEED)
+        val fresh = log.filterNot { it in heard }
+        heard += fresh
+        if (!history && fresh.isNotEmpty()) tickSession(fresh)
     }
 
     /**
      * Runs one session tick and speaks whatever comes out.
      *
-     * Called after anything that could produce an announcement rather than on a timer: without the
-     * realtime layer there are no incoming positions, so nothing changes unless this app changed
-     * it. The exception is a held line — the announcer keeps one back while the channel is busy and
+     * Called after anything that could produce an announcement, rather than on a timer: new
+     * positions, new entries in the log, a crash signal. Nothing changes between those, so there is
+     * nothing to say. The exception is a held line — the announcer keeps one back while the channel is busy and
      * has no clock of its own, so when it says something is pending we come back once the quiet
      * period has passed. Without that the deferral would wait for whatever event happened to
      * arrive next, which on a quiet ride could be minutes.

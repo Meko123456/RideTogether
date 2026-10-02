@@ -4,8 +4,11 @@ import io.github.meko123456.ridetogether.alerts.RiderSample
 import io.github.meko123456.ridetogether.android.history.RideHistory
 import io.github.meko123456.ridetogether.announce.Announcement
 import io.github.meko123456.ridetogether.crash.CrashSignal
+import io.github.meko123456.ridetogether.model.JoinCode
 import io.github.meko123456.ridetogether.model.LatLng
+import io.github.meko123456.ridetogether.model.Member
 import io.github.meko123456.ridetogether.model.QuickMessage
+import io.github.meko123456.ridetogether.model.RideEvent
 import io.github.meko123456.ridetogether.model.RoomState
 import io.github.meko123456.ridetogether.realtime.InMemoryRealtimeClient
 import io.github.meko123456.ridetogether.realtime.RealtimeClient
@@ -16,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -260,6 +264,69 @@ class RideViewModelTest {
             voice.spoken.any { it.text.contains("slow down") },
             "someone else's is spoken: ${voice.spoken.map { it.text }}",
         )
+    }
+
+    @Test
+    fun `a message goes into the room's log which is where the other riders get it`() = runTest(dispatcher) {
+        // It used to stop at this phone's own feed: harmless with nobody else in the ride, and a
+        // message nobody receives the moment there is.
+        val vm = viewModel()
+        vm.createRide(); advanceUntilIdle()
+        vm.addDemoRider(); advanceUntilIdle()
+        vm.send(RoomCommand.StartRide); advanceUntilIdle()
+        vm.send(QuickMessage.FUEL_STOP_NEEDED); advanceUntilIdle()
+
+        val log = client.observeEvents(vm.room!!.id).first()
+        assertTrue(log.any { it is RideEvent.Message && it.riderId == "me" && it.message == QuickMessage.FUEL_STOP_NEEDED }, "$log")
+        assertTrue(log.any { it is RideEvent.StateChanged && it.to == RoomState.RIDING }, "so is the start: $log")
+        assertEquals("Sent: ${QuickMessage.FUEL_STOP_NEEDED.text}", vm.notice)
+    }
+
+    @Test
+    fun `another rider's message arriving through the client is spoken`() = runTest(dispatcher) {
+        val vm = viewModel()
+        vm.createRide(); advanceUntilIdle()
+        vm.addDemoRider(); advanceUntilIdle()
+        vm.send(RoomCommand.StartRide); advanceUntilIdle()
+        voice.spoken.clear()
+
+        // As the network delivers it: into the log, without this view model doing anything.
+        val other = vm.room!!.members.first { it.riderId != "me" }
+        client.publishEvent(vm.room!!.id, RideEvent.Message(Clock.System.now(), other.riderId, QuickMessage.SLOW_DOWN))
+        advanceUntilIdle()
+        assertTrue(voice.spoken.any { it.text.contains("slow down") }, "${voice.spoken.map { it.text }}")
+    }
+
+    @Test
+    fun `joining a ride shows what was said before without reading it out`() = runTest(dispatcher) {
+        val code = JoinCode("A2B4C7")
+        val now = Clock.System.now()
+        val room = client.createRoom("Sunday run", code, now).valueOrNull!!
+        client.receiveMember(room.id, Member("ana", "Ana"))
+        client.setState(room.id, RoomState.RIDING, now)
+        val earlier = RideEvent.Message(now, "ana", QuickMessage.SLOW_DOWN)
+        client.publishEvent(room.id, earlier)
+
+        val vm = viewModel()
+        vm.onCodeInputChange(code.value)
+        vm.joinByCode(); advanceUntilIdle()
+        assertEquals(listOf<RideEvent>(earlier), vm.feed)
+        assertTrue(voice.spoken.isEmpty(), "history, not news: ${voice.spoken.map { it.text }}")
+
+        client.publishEvent(room.id, RideEvent.Message(Clock.System.now(), "ana", QuickMessage.PULL_OVER_NEXT_SAFE_SPOT))
+        advanceUntilIdle()
+        assertTrue(voice.spoken.isNotEmpty(), "but what is said once you are in is heard")
+    }
+
+    @Test
+    fun `a message that cannot be sent says so`() = runTest(dispatcher) {
+        val vm = viewModel()
+        vm.createRide(); advanceUntilIdle()
+        vm.addDemoRider(); advanceUntilIdle()
+        vm.send(RoomCommand.StartRide); advanceUntilIdle()
+        client.online = false
+        vm.send(QuickMessage.FUEL_STOP_NEEDED); advanceUntilIdle()
+        assertEquals("Not sent: no connection.", vm.notice)
     }
 
     @Test
