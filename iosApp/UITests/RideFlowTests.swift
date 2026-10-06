@@ -8,6 +8,13 @@ import XCTest
 /// something that compiled and did nothing.
 final class RideFlowTests: XCTestCase {
 
+    /// How long to wait for the app to draw something. A wait returns the moment its element
+    /// appears, so a generous one costs nothing on a quick run; ten seconds was not enough for a
+    /// summary on a slow CI runner (6 October 2026), where the Kotlin summariser and the redraw
+    /// shared a busy macOS machine.
+    static let wait: TimeInterval = 30
+
+
     private var app: XCUIApplication!
 
     override func setUp() {
@@ -19,7 +26,7 @@ final class RideFlowTests: XCTestCase {
     func testTheRosterComesFromTheSharedModule() {
         // Names and the sweep flag are held in Kotlin. Seeing them means the framework loaded, the
         // members list crossed the bridge and SwiftUI drew it.
-        XCTAssertTrue(app.staticTexts["You"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["You"].waitForExistence(timeout: Self.wait))
         XCTAssertTrue(app.staticTexts["Dato"].exists)
         XCTAssertTrue(app.staticTexts["Luka"].exists)
         XCTAssertTrue(app.staticTexts["sweep"].exists)
@@ -27,14 +34,14 @@ final class RideFlowTests: XCTestCase {
 
     func testEveryRiderStartsWithTheGroup() {
         let status = app.staticTexts["status-rider-2"]
-        XCTAssertTrue(status.waitForExistence(timeout: 10))
+        XCTAssertTrue(status.waitForExistence(timeout: Self.wait))
         XCTAssertEqual(status.label, "with the group")
     }
 
     func testTheClockAdvances() {
         // A simulation whose clock is stopped would pass every other assertion here.
         let first = app.staticTexts["gap-rider-2"].firstMatch
-        XCTAssertTrue(first.waitForExistence(timeout: 10))
+        XCTAssertTrue(first.waitForExistence(timeout: Self.wait))
         let before = first.label
         // Riders hold position by default, so the gap only moves once something makes it move.
         app.buttons["dropBack-rider-2"].tap()
@@ -109,7 +116,7 @@ final class RideFlowTests: XCTestCase {
         // summary appeared at all, that it has a distance, and that the distance is a ride's
         // worth rather than a single fix.
         let distance = app.staticTexts["summary-distance"]
-        XCTAssertTrue(distance.waitForExistence(timeout: 10), "ending the ride produced no summary")
+        XCTAssertTrue(distance.waitForExistence(timeout: Self.wait), "ending the ride produced no summary")
         XCTAssertNotEqual(distance.label, "0 m", "the summariser totalled a ride that never moved")
         XCTAssertGreaterThan(metres(distance.label), 500, "ride too short: \(distance.label)")
 
@@ -122,7 +129,7 @@ final class RideFlowTests: XCTestCase {
 
     func testTheSummaryGivesEveryRiderTheGroupSpeed() {
         rideThenEnd()
-        XCTAssertTrue(app.staticTexts["summary-distance"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["summary-distance"].waitForExistence(timeout: Self.wait), "ending the ride produced no summary")
 
         // Nobody drops back here, so all four rode the same road at the same speed and the
         // summariser should say so about each of them. 50 km/h is its own arithmetic over the
@@ -138,11 +145,11 @@ final class RideFlowTests: XCTestCase {
     }
 
     func testARiderWhoDroppedBackDidNotRideTheSameRide() {
-        XCTAssertTrue(app.staticTexts["You"].waitForExistence(timeout: 10), "the app never drew")
+        XCTAssertTrue(app.staticTexts["You"].waitForExistence(timeout: Self.wait), "the app never drew")
         app.buttons["dropBack-rider-2"].tap()
         Thread.sleep(forTimeInterval: 12)
         app.buttons["Ended"].tap()
-        XCTAssertTrue(app.staticTexts["summary-distance"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["summary-distance"].waitForExistence(timeout: Self.wait), "ending the ride produced no summary")
 
         let found = labels(of: ["summary-distance", "summary-distance-rider-1", "summary-distance-rider-2"])
         XCTAssertNotNil(found["summary-distance-rider-1"], "the leader is missing from the summary")
@@ -163,7 +170,7 @@ final class RideFlowTests: XCTestCase {
     }
 
     func testPausingTheRideCountsAsStoppedTimeRatherThanRiding() {
-        XCTAssertTrue(app.staticTexts["You"].waitForExistence(timeout: 10), "the app never drew")
+        XCTAssertTrue(app.staticTexts["You"].waitForExistence(timeout: Self.wait), "the app never drew")
         Thread.sleep(forTimeInterval: 6)
 
         // A paused group stands where it is, but the clock keeps running, because a fuel stop is
@@ -174,7 +181,7 @@ final class RideFlowTests: XCTestCase {
         app.buttons["Paused"].tap()
         Thread.sleep(forTimeInterval: 10)
         app.buttons["Ended"].tap()
-        XCTAssertTrue(app.staticTexts["summary-distance"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["summary-distance"].waitForExistence(timeout: Self.wait), "ending the ride produced no summary")
 
         let line = labels(of: ["summary-time-rider-1"])["summary-time-rider-1"]
         XCTAssertNotNil(line, "the leader is missing from the summary")
@@ -194,7 +201,7 @@ final class RideFlowTests: XCTestCase {
     /// once a second, so twelve seconds is well over a kilometre and the totals that follow are
     /// answers rather than zeros.
     private func rideThenEnd(seconds: TimeInterval = 12) {
-        XCTAssertTrue(app.staticTexts["You"].waitForExistence(timeout: 10), "the app never drew")
+        XCTAssertTrue(app.staticTexts["You"].waitForExistence(timeout: Self.wait), "the app never drew")
         Thread.sleep(forTimeInterval: seconds)
         app.buttons["Ended"].tap()
     }
