@@ -1,9 +1,9 @@
 package io.github.meko123456.ridetogether.crash
 
 import io.github.meko123456.ridetogether.model.LatLng
-import kotlinx.datetime.Instant
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 /**
  * One reading from the phone's motion sensors, paired with whatever the location provider last

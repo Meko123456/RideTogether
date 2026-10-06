@@ -3,9 +3,9 @@ package io.github.meko123456.ridetogether.location
 import io.github.meko123456.ridetogether.model.Geo
 import io.github.meko123456.ridetogether.model.LatLng
 import io.github.meko123456.ridetogether.model.RoomState
-import kotlinx.datetime.Instant
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 /** What the phone currently knows about itself. Nulls mean "not known yet", not "zero". */
 data class LocationConditions(

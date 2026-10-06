@@ -1,6 +1,6 @@
 package io.github.meko123456.ridetogether.model
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * How a rider currently stands relative to the group.

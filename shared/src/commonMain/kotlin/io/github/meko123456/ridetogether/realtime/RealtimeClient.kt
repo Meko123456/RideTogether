@@ -6,8 +6,8 @@ import io.github.meko123456.ridetogether.model.Member
 import io.github.meko123456.ridetogether.model.RideEvent
 import io.github.meko123456.ridetogether.model.Room
 import io.github.meko123456.ridetogether.model.RoomState
+import kotlin.time.Instant
 import kotlinx.coroutines.flow.Flow
-import kotlinx.datetime.Instant
 
 /**
  * Everything the app needs from a backend, and nothing about which backend it is.

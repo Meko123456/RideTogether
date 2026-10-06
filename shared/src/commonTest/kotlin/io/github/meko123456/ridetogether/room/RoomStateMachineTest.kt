@@ -2,13 +2,13 @@ package io.github.meko123456.ridetogether.room
 
 import io.github.meko123456.ridetogether.model.Role
 import io.github.meko123456.ridetogether.model.RoomState
-import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 
 class RoomStateMachineTest {
 

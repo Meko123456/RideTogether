@@ -26,9 +26,6 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(libs.kotlinx.serialization.json)
-            // Instant/Duration in the domain: the alert engine reasons about time, and must do
-            // so on a clock the tests control rather than the system clock.
-            api(libs.kotlinx.datetime)
             implementation(libs.kotlinx.coroutines.core)
             // The Realtime Database is spoken to over its REST and streaming API rather than
             // through Firebase's platform SDKs, so one client serves both apps (#10).

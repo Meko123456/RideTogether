@@ -1,6 +1,6 @@
 package io.github.meko123456.ridetogether.model
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /** One of the canned one-tap messages (spec 2.4). */
 enum class QuickMessage(val text: String) {

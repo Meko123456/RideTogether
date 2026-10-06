@@ -5,7 +5,7 @@ import io.github.meko123456.ridetogether.crash.CrashSignal
 import io.github.meko123456.ridetogether.model.QuickMessage
 import io.github.meko123456.ridetogether.model.RideEvent
 import io.github.meko123456.ridetogether.model.RoomState
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * Decides what a rider actually hears.

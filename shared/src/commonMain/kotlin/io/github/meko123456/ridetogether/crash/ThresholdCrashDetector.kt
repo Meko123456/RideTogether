@@ -1,8 +1,8 @@
 package io.github.meko123456.ridetogether.crash
 
 import io.github.meko123456.ridetogether.model.LatLng
-import kotlinx.datetime.Instant
 import kotlin.math.abs
+import kotlin.time.Instant
 
 /**
  * The default detector: an impact spike, **then** a large orientation change, **then** stillness —

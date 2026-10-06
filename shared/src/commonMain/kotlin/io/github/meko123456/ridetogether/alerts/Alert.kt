@@ -1,7 +1,7 @@
 package io.github.meko123456.ridetogether.alerts
 
 import io.github.meko123456.ridetogether.model.LatLng
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * What the engine decided. These are *transitions*, emitted once when something changes, so the

@@ -6,8 +6,8 @@ import io.github.meko123456.ridetogether.model.LatLng
 import io.github.meko123456.ridetogether.model.Member
 import io.github.meko123456.ridetogether.model.RiderStatus
 import io.github.meko123456.ridetogether.model.RoomState
-import kotlinx.datetime.Instant
 import kotlin.time.Duration
+import kotlin.time.Instant
 
 /** One rider's reported position at a moment in time — the engine's only input about the world. */
 data class RiderSample(

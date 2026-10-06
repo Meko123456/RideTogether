@@ -29,8 +29,8 @@ import io.github.meko123456.ridetogether.location.LocationConditions
 import io.github.meko123456.ridetogether.location.LocationPolicy
 import io.github.meko123456.ridetogether.model.LatLng
 import io.github.meko123456.ridetogether.model.RoomState
-import kotlinx.datetime.Instant
 import kotlin.time.Duration
+import kotlin.time.Instant
 
 /**
  * Collects this rider's position for as long as a ride is running, and not one second longer.

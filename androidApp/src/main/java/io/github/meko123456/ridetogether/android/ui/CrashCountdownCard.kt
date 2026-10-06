@@ -20,8 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.meko123456.ridetogether.crash.CrashSignal
+import kotlin.time.Clock
 import kotlinx.coroutines.delay
-import kotlinx.datetime.Clock
 
 /**
  * The cancel button that makes crash detection acceptable at all.

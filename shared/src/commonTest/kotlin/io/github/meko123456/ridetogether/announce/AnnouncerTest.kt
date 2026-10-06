@@ -5,12 +5,12 @@ import io.github.meko123456.ridetogether.model.LatLng
 import io.github.meko123456.ridetogether.model.QuickMessage
 import io.github.meko123456.ridetogether.model.RideEvent
 import io.github.meko123456.ridetogether.model.RoomState
-import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 /**
  * What a rider hears through a helmet. The restraint is the feature, so most of these tests are

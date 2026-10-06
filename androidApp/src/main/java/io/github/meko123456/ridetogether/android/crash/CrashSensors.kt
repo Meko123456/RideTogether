@@ -8,10 +8,10 @@ import android.hardware.SensorManager
 import android.util.Log
 import io.github.meko123456.ridetogether.crash.MotionSample
 import io.github.meko123456.ridetogether.model.LatLng
-import kotlinx.datetime.Clock
 import kotlin.math.abs
 import kotlin.math.acos
 import kotlin.math.sqrt
+import kotlin.time.Clock
 
 /**
  * Turns the phone's motion sensors into the [MotionSample]s the detector expects.

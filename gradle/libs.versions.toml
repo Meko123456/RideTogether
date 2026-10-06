@@ -2,7 +2,6 @@
 agp = "9.4.1"
 kotlin = "2.4.20"
 kotlinxSerialization = "1.11.0"
-kotlinxDatetime = "0.6.2"
 kotlinxCoroutines = "1.11.0"
 composeBom = "2026.09.00"
 activityCompose = "1.13.0"
@@ -34,7 +33,6 @@ junit = { module = "junit:junit", version = "4.13.2" }
 # null. The real library makes the history tests exercise real JSON rather than a stub.
 json = { module = "org.json:json", version = "20240303" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
-kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
 

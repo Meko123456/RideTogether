@@ -6,9 +6,9 @@ import io.github.meko123456.ridetogether.crash.CrashState
 import io.github.meko123456.ridetogether.crash.MotionSample
 import io.github.meko123456.ridetogether.crash.ThresholdCrashDetector
 import io.github.meko123456.ridetogether.model.LatLng
+import kotlin.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.datetime.Instant
 
 /**
  * Holds the crash detector for the process, because the two halves of it live in different places:

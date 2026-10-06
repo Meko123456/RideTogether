@@ -11,7 +11,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * Persistence, tested because this is the one place in the app where a bug loses something the

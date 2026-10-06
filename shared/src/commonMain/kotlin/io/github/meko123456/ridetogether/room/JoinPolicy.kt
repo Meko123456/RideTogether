@@ -3,7 +3,7 @@ package io.github.meko123456.ridetogether.room
 import io.github.meko123456.ridetogether.model.Room
 import io.github.meko123456.ridetogether.model.RoomState
 import io.github.meko123456.ridetogether.model.Visibility
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /** The outcome of trying to join a room. */
 sealed interface JoinOutcome {

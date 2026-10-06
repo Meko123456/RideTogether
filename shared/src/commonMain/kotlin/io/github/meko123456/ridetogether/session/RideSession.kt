@@ -17,8 +17,8 @@ import io.github.meko123456.ridetogether.model.LatLng
 import io.github.meko123456.ridetogether.model.Member
 import io.github.meko123456.ridetogether.model.RideEvent
 import io.github.meko123456.ridetogether.model.RoomState
-import kotlinx.datetime.Instant
 import kotlin.time.Duration
+import kotlin.time.Instant
 
 /** Everything the platform layer knows at one moment. */
 data class SessionTick(

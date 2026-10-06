@@ -12,7 +12,7 @@ import io.github.meko123456.ridetogether.model.Room
 import io.github.meko123456.ridetogether.model.RoomState
 import io.github.meko123456.ridetogether.model.Visibility
 import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject

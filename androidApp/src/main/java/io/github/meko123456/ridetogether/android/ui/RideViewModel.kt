@@ -3,6 +3,7 @@ package io.github.meko123456.ridetogether.android.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlin.time.Clock
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import androidx.lifecycle.ViewModelProvider
@@ -39,7 +40,6 @@ import io.github.meko123456.ridetogether.room.RoomCommand
 import io.github.meko123456.ridetogether.room.RoomRejection
 import io.github.meko123456.ridetogether.room.RoomStateMachine
 import io.github.meko123456.ridetogether.room.RoomTransition
-import kotlinx.datetime.Clock
 import kotlin.random.Random
 
 /**

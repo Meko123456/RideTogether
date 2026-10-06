@@ -1,9 +1,9 @@
 package io.github.meko123456.ridetogether.summary
 
 import io.github.meko123456.ridetogether.model.LatLng
-import kotlinx.datetime.Instant
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 /** One recorded point on a rider's trace. [speedMps] is the provider's own figure when it had one. */
 data class TracePoint(

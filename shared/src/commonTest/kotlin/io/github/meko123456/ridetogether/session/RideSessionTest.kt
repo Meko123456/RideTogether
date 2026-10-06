@@ -12,7 +12,6 @@ import io.github.meko123456.ridetogether.model.RideEvent
 import io.github.meko123456.ridetogether.model.RiderStatus
 import io.github.meko123456.ridetogether.model.Role
 import io.github.meko123456.ridetogether.model.RoomState
-import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -20,6 +19,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 /**
  * The composition, not the pieces: each of the engine, announcer and policy has its own suite.

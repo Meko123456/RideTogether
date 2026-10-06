@@ -6,7 +6,6 @@ import io.github.meko123456.ridetogether.model.Member
 import io.github.meko123456.ridetogether.model.RiderStatus
 import io.github.meko123456.ridetogether.model.Role
 import io.github.meko123456.ridetogether.model.RoomState
-import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -14,6 +13,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 /**
  * Synthetic GPS traces. The engine is pure, so a "ride" here is just a list of ticks — which is

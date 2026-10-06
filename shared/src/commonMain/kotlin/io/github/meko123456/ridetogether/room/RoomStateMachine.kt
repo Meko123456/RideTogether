@@ -2,9 +2,9 @@ package io.github.meko123456.ridetogether.room
 
 import io.github.meko123456.ridetogether.model.Role
 import io.github.meko123456.ridetogether.model.RoomState
-import kotlinx.datetime.Instant
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Instant
 
 /** Something a member asks the room to do. */
 sealed interface RoomCommand {

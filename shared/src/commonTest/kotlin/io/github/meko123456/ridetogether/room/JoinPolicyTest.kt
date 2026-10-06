@@ -5,12 +5,12 @@ import io.github.meko123456.ridetogether.model.Member
 import io.github.meko123456.ridetogether.model.Room
 import io.github.meko123456.ridetogether.model.RoomState
 import io.github.meko123456.ridetogether.model.Visibility
-import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 
 class JoinPolicyTest {
 

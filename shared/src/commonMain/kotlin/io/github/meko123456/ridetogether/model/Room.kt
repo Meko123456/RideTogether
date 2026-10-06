@@ -1,6 +1,6 @@
 package io.github.meko123456.ridetogether.model
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /** Who can find and join a room. */
 enum class Visibility { INVITE_ONLY, PUBLIC }

@@ -254,8 +254,8 @@ final class RideStore: ObservableObject {
         return LatLng(latitude: 41.7 + metresAlong / metresPerDegree, longitude: 44.8)
     }
 
-    private func instant(at seconds: TimeInterval) -> Kotlinx_datetimeInstant {
-        Kotlinx_datetimeInstant.companion.fromEpochMilliseconds(
+    private func instant(at seconds: TimeInterval) -> KotlinInstant {
+        KotlinInstant.companion.fromEpochMilliseconds(
             epochMilliseconds: Int64(1_780_000_000_000 + Int(seconds) * 1000)
         )
     }

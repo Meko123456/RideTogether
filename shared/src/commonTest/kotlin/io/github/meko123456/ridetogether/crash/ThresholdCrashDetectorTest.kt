@@ -1,12 +1,12 @@
 package io.github.meko123456.ridetogether.crash
 
 import io.github.meko123456.ridetogether.model.LatLng
-import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 /**
  * Synthetic sensor traces. Every test below is a scenario a real rider produces on an ordinary

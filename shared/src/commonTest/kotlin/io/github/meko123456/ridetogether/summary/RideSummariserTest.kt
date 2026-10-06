@@ -1,7 +1,6 @@
 package io.github.meko123456.ridetogether.summary
 
 import io.github.meko123456.ridetogether.model.LatLng
-import kotlinx.datetime.Instant
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -9,6 +8,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 /**
  * Traces run due east along the equator, where 0.001° of longitude is ~111.32 m, so the intended

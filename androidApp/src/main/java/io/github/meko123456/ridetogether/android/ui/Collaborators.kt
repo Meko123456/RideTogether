@@ -3,8 +3,8 @@ package io.github.meko123456.ridetogether.android.ui
 import io.github.meko123456.ridetogether.alerts.RiderSample
 import io.github.meko123456.ridetogether.announce.Announcement
 import io.github.meko123456.ridetogether.crash.CrashSignal
+import kotlin.time.Instant
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.datetime.Instant
 
 /**
  * The three things [RideViewModel] needs from the platform, as interfaces.

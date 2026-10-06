@@ -12,11 +12,11 @@ import io.github.meko123456.ridetogether.room.JoinOutcome
 import io.github.meko123456.ridetogether.room.JoinPolicy
 import io.github.meko123456.ridetogether.room.JoinRefusal
 import io.github.meko123456.ridetogether.room.RoomStateMachine
+import kotlin.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.datetime.Instant
 
 /**
  * A [RealtimeClient] backed by nothing but memory.

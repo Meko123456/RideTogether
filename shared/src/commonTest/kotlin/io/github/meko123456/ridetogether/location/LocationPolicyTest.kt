@@ -2,13 +2,13 @@ package io.github.meko123456.ridetogether.location
 
 import io.github.meko123456.ridetogether.model.LatLng
 import io.github.meko123456.ridetogether.model.RoomState
-import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 class LocationPolicyTest {
 

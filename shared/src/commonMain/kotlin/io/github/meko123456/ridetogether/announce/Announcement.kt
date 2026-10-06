@@ -1,9 +1,9 @@
 package io.github.meko123456.ridetogether.announce
 
-import kotlinx.datetime.Instant
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 /**
  * How much a spoken line is allowed to interrupt.
