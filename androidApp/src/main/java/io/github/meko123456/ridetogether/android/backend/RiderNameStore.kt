@@ -3,6 +3,7 @@ package io.github.meko123456.ridetogether.android.backend
 import android.content.Context
 import androidx.core.content.edit
 import io.github.meko123456.ridetogether.model.Member
+import io.github.meko123456.ridetogether.model.capped
 
 /**
  * The name this rider goes by on a shared backend, asked once and kept. Unlike the sign-in session
@@ -21,6 +22,6 @@ class RiderNameStore(context: Context) {
         private const val NAME = "name"
 
         /** Trimmed, and no longer than the database rules accept, which would refuse it outright. */
-        fun tidy(name: String): String = name.trim().take(Member.MAX_NAME_LENGTH).trim()
+        fun tidy(name: String): String = name.trim().capped(Member.MAX_NAME_LENGTH).trim()
     }
 }

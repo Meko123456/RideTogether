@@ -27,6 +27,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import io.github.meko123456.ridetogether.android.backend.RiderNameStore
 import io.github.meko123456.ridetogether.model.Member
+import io.github.meko123456.ridetogether.model.capped
 
 /**
  * The one question a shared backend needs answered: what the other riders should call you.
@@ -40,7 +41,7 @@ fun NameScreen(onSubmit: (String) -> Unit, modifier: Modifier = Modifier) {
         Text("What should the group call you?", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
             value = name,
-            onValueChange = { name = it.take(Member.MAX_NAME_LENGTH) },
+            onValueChange = { name = it.capped(Member.MAX_NAME_LENGTH) },
             label = { Text("Your name") },
             placeholder = { Text("Nino") },
             singleLine = true,

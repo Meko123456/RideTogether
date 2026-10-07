@@ -117,6 +117,13 @@ class RideViewModelTest {
     }
 
     @Test
+    fun `a ride name typed up to its cap keeps no half of an emoji`() = runTest(dispatcher) {
+        val vm = viewModel()
+        vm.onRideNameChange("x".repeat(39) + "\uD83D\uDD25") // 🔥, two chars, across the cap at 40
+        assertEquals("x".repeat(39), vm.rideName)
+    }
+
+    @Test
     fun `the rider is whoever the client writes as`() = runTest(dispatcher) {
         // With a shared backend the id is the uid this install signed in as, not "me", and a
         // client can only ever write as that one rider. Taking the id from the client means the

@@ -17,6 +17,7 @@ import androidx.lifecycle.viewModelScope
 import io.github.meko123456.ridetogether.model.JoinCode
 import io.github.meko123456.ridetogether.model.QuickMessage
 import io.github.meko123456.ridetogether.model.RideEvent
+import io.github.meko123456.ridetogether.model.capped
 import io.github.meko123456.ridetogether.session.RideSession
 import io.github.meko123456.ridetogether.session.SessionTick
 import io.github.meko123456.ridetogether.android.history.RideHistory
@@ -173,7 +174,7 @@ class RideViewModel(
     val resolvedCode: JoinCode? get() = JoinCode.parseOrNull(codeInput)
 
     fun onRideNameChange(value: String) {
-        rideName = value.take(40)
+        rideName = value.capped(40)
     }
 
     fun onCodeInputChange(value: String) {
