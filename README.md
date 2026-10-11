@@ -51,7 +51,7 @@ logic is covered without a device.
 
 ## iOS
 
-There is an iOS app, and it runs the same engine the Android one does.
+There is an iOS application, and it runs the same engine the Android one does.
 
 ```sh
 cd iosApp && xcodegen generate
