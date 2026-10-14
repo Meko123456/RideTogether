@@ -93,17 +93,23 @@ private struct SummarySection: View {
     let summary: RideSummary
     let nameOf: (String) -> String
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
         Section("Ride summary") {
             if summary.isEmpty {
                 Text("Nothing was recorded. The ride has to run before there is anything to total up.")
                     .foregroundStyle(.secondary)
             } else {
-                HStack(alignment: .top) {
+                // One under another at the accessibility text sizes. Three abreast, the labels broke
+                // into "Dis tance", "Elaps ed" and "Rid ers".
+                let stacked = typeSize.isAccessibilitySize
+                let stats = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(alignment: .top))
+                stats {
                     Stat(label: "Distance", value: distance(summary.distanceMeters), id: "summary-distance")
-                    Spacer()
+                    if !stacked { Spacer() }
                     Stat(label: "Elapsed", value: duration(summary.elapsedSeconds), id: "summary-elapsed")
-                    Spacer()
+                    if !stacked { Spacer() }
                     Stat(label: "Riders", value: "\(summary.riders.count)", id: "summary-riders")
                 }
                 .padding(.vertical, 4)
@@ -206,14 +212,23 @@ private struct RiderRow: View {
     let onCatchUp: () -> Void
     let onToggleSilent: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
+        // At the accessibility text sizes the status goes under the name and the buttons stack.
+        // Side by side, they broke words into pieces: "Dr op ba ck", "Luk a", "swee p".
+        let stacked = typeSize.isAccessibilitySize
+        let header = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2)) : AnyLayout(HStackLayout())
+        let controls = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 12))
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(member.displayName).font(.headline)
-                if member.isSweep {
-                    Text("sweep").font(.caption).foregroundStyle(.secondary)
+            header {
+                HStack {
+                    Text(member.displayName).font(.headline)
+                    if member.isSweep {
+                        Text("sweep").font(.caption).foregroundStyle(.secondary)
+                    }
                 }
-                Spacer()
+                if !stacked { Spacer() }
                 Text(statusText)
                     .font(.subheadline)
                     .foregroundStyle(statusColour)
@@ -226,7 +241,7 @@ private struct RiderRow: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            HStack(spacing: 12) {
+            controls {
                 Button("Drop back", action: onDropBack)
                     .accessibilityIdentifier("dropBack-\(member.riderId)")
                 Button("Catch up", action: onCatchUp)
