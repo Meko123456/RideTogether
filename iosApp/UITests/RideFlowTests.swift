@@ -146,7 +146,7 @@ final class RideFlowTests: XCTestCase {
 
     func testARiderWhoDroppedBackDidNotRideTheSameRide() {
         XCTAssertTrue(app.staticTexts["You"].waitForExistence(timeout: Self.wait), "the app never drew")
-        app.buttons["dropBack-rider-2"].tap()
+        dropBack("rider-2")
         Thread.sleep(forTimeInterval: 12)
         app.buttons["Ended"].tap()
         XCTAssertTrue(app.staticTexts["summary-distance"].waitForExistence(timeout: Self.wait), "ending the ride produced no summary")
@@ -204,6 +204,22 @@ final class RideFlowTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["You"].waitForExistence(timeout: Self.wait), "the app never drew")
         Thread.sleep(forTimeInterval: seconds)
         app.buttons["Ended"].tap()
+    }
+
+    /// Drops a rider back and waits until the ride says so.
+    ///
+    /// On a busy CI runner (11 October 2026) the tap was synthesised and never landed. The ride then
+    /// ran with nobody dropping back, both riders came out at 5.0 km, and the test blamed the
+    /// summariser. Dropping back again is harmless, so a tap that did not take is simply repeated.
+    private func dropBack(_ riderId: String) {
+        let gap = app.staticTexts["gap-\(riderId)"]
+        let losing = NSPredicate(format: "label CONTAINS %@", "losing ground")
+        for _ in 1...3 {
+            app.buttons["dropBack-\(riderId)"].tap()
+            let landed = XCTNSPredicateExpectation(predicate: losing, object: gap)
+            if XCTWaiter().wait(for: [landed], timeout: 10) == .completed { return }
+        }
+        XCTFail("dropping \(riderId) back never reached the ride")
     }
 
     /// Reads the labels of several elements, scrolling down until it has them.
