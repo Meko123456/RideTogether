@@ -1,5 +1,6 @@
 package io.github.meko123456.ridetogether.android.ui
 
+import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.meko123456.ridetogether.android.history.StoredRide
@@ -101,7 +103,11 @@ fun RideSummaryCard(ride: StoredRide, onDismiss: () -> Unit, onShare: (String) -
 @Composable
 fun RideHistoryCard(rides: List<StoredRide>) {
     if (rides.isEmpty()) return
-    val stamp = remember { SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()) }
+    // On the phone's own clock: "15 Oct, 5:30 PM" where it keeps 12 hours, "15 Oct, 17:30" otherwise.
+    val is24Hour = DateFormat.is24HourFormat(LocalContext.current)
+    val stamp = remember(is24Hour) {
+        SimpleDateFormat(if (is24Hour) "d MMM, HH:mm" else "d MMM, h:mm a", Locale.getDefault())
+    }
     Card {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Past rides", style = MaterialTheme.typography.titleMedium)
