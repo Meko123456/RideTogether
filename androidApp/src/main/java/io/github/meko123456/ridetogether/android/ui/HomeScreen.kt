@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -20,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -70,6 +72,9 @@ fun HomeScreen(
                     label = { Text("Name it (optional)") },
                     placeholder = { Text("Gudauri and back") },
                     singleLine = true,
+                    // The keyboard's action key does what the button under the field does.
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                    keyboardActions = KeyboardActions(onGo = { onCreateRide() }),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Button(onClick = onCreateRide, modifier = Modifier.fillMaxWidth()) {
@@ -95,7 +100,13 @@ fun HomeScreen(
                     label = { Text("Ride code") },
                     placeholder = { Text("A2B4C7") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Characters,
+                        imeAction = ImeAction.Go,
+                    ),
+                    // Joins, like the button below. With a code that can't be one, the button is
+                    // disabled and says nothing; the action key gets the reason instead.
+                    keyboardActions = KeyboardActions(onGo = { onJoinRide() }),
                     textStyle = MaterialTheme.typography.headlineSmall.copy(
                         fontFamily = FontFamily.Monospace,
                         letterSpacing = 6.sp,
