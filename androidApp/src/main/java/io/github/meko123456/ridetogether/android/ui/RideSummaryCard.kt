@@ -40,6 +40,9 @@ fun formatDuration(millis: Long): String {
 
 fun formatSpeed(mps: Double?): String = mps?.let { "${(it * 3.6).toInt()} km/h" } ?: "—"
 
+/** "1 second", "12 seconds". The crash countdown passes through one on its way to alerting the group. */
+fun formatSeconds(seconds: Int): String = if (seconds == 1) "1 second" else "$seconds seconds"
+
 /**
  * What a ride was, once it is over.
  *

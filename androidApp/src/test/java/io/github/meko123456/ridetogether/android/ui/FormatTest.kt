@@ -15,6 +15,15 @@ class FormatTest {
     }
 
     @Test
+    fun `one second is a second`() {
+        // The crash countdown passes through one second before alerting the group, and said
+        // "alerted in 1 seconds".
+        assertEquals("1 second", formatSeconds(1))
+        assertEquals("2 seconds", formatSeconds(2))
+        assertEquals("30 seconds", formatSeconds(30))
+    }
+
+    @Test
     fun `a short ride shows seconds rather than zero minutes`() {
         // "0m" of riding reads as a failure rather than a short ride, and a short ride is exactly
         // what a first test run produces.

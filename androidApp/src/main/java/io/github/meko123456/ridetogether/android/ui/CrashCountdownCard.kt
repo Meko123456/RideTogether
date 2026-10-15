@@ -61,7 +61,7 @@ fun CrashCountdownCard(
                     )
                     Text(
                         "It looks like you may have come off. The group will be alerted in " +
-                            "$remaining seconds unless you say otherwise.",
+                            "${formatSeconds(remaining)} unless you say otherwise.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Button(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
