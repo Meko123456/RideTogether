@@ -152,7 +152,7 @@ private struct SummaryRow: View {
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("summary-time-\(rider.riderId)")
             if rider.discardedPoints > 0 {
-                Text("\(rider.discardedPoints) fixes discarded as implausible, so these numbers are approximate.")
+                Text("\(fixes(rider.discardedPoints)) discarded as implausible, so these numbers are approximate.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("summary-discarded-\(rider.riderId)")
@@ -194,6 +194,11 @@ private func duration(_ seconds: Int64) -> String {
 /// the rest of its numbers.
 private func stops(_ count: Int32) -> String {
     count == 1 ? "1 stop" : "\(count) stops"
+}
+
+/// "1 fix", not "1 fixes": one duplicated or impossible fix is the usual reason a summary is approximate.
+private func fixes(_ count: Int32) -> String {
+    count == 1 ? "1 fix" : "\(count) fixes"
 }
 
 private func speed(_ mps: KotlinDouble?) -> String {

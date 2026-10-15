@@ -24,6 +24,20 @@ class FormatTest {
     }
 
     @Test
+    fun `one discarded fix is one fix`() {
+        // A single duplicated or impossible fix is the usual case, and the note said
+        // "1 GPS fixes were discarded".
+        assertEquals(
+            "1 GPS fix was discarded as implausible, so these numbers are approximate.",
+            discardedNote(1),
+        )
+        assertEquals(
+            "3 GPS fixes were discarded as implausible, so these numbers are approximate.",
+            discardedNote(3),
+        )
+    }
+
+    @Test
     fun `a short ride shows seconds rather than zero minutes`() {
         // "0m" of riding reads as a failure rather than a short ride, and a short ride is exactly
         // what a first test run produces.

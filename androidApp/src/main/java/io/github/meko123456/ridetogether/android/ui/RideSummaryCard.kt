@@ -44,6 +44,14 @@ fun formatSpeed(mps: Double?): String = mps?.let { "${(it * 3.6).toInt()} km/h" 
 fun formatSeconds(seconds: Int): String = if (seconds == 1) "1 second" else "$seconds seconds"
 
 /**
+ * The note under a summary that lost fixes. One duplicated or impossible fix is the usual case,
+ * and it read "1 GPS fixes were discarded".
+ */
+fun discardedNote(count: Int): String =
+    (if (count == 1) "1 GPS fix was" else "$count GPS fixes were") +
+        " discarded as implausible, so these numbers are approximate."
+
+/**
  * What a ride was, once it is over.
  *
  * The moving average is shown rather than the wall-clock one, and stopped time is shown beside it,
@@ -76,8 +84,7 @@ fun RideSummaryCard(ride: StoredRide, onDismiss: () -> Unit, onShare: (String) -
             )
             if (ride.discardedPoints > 0) {
                 Text(
-                    "${ride.discardedPoints} GPS fixes were discarded as implausible, so these " +
-                        "numbers are approximate.",
+                    discardedNote(ride.discardedPoints),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
