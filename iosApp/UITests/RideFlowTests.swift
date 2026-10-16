@@ -148,8 +148,7 @@ final class RideFlowTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["You"].waitForExistence(timeout: Self.wait), "the app never drew")
         dropBack("rider-2")
         Thread.sleep(forTimeInterval: 12)
-        app.buttons["Ended"].tap()
-        XCTAssertTrue(app.staticTexts["summary-distance"].waitForExistence(timeout: Self.wait), "ending the ride produced no summary")
+        endRide()
 
         let found = labels(of: ["summary-distance", "summary-distance-rider-1", "summary-distance-rider-2"])
         XCTAssertNotNil(found["summary-distance-rider-1"], "the leader is missing from the summary")
@@ -180,8 +179,7 @@ final class RideFlowTests: XCTestCase {
         // of the minute.
         app.buttons["Paused"].tap()
         Thread.sleep(forTimeInterval: 10)
-        app.buttons["Ended"].tap()
-        XCTAssertTrue(app.staticTexts["summary-distance"].waitForExistence(timeout: Self.wait), "ending the ride produced no summary")
+        endRide()
 
         let line = labels(of: ["summary-time-rider-1"])["summary-time-rider-1"]
         XCTAssertNotNil(line, "the leader is missing from the summary")
@@ -203,7 +201,21 @@ final class RideFlowTests: XCTestCase {
     private func rideThenEnd(seconds: TimeInterval = 12) {
         XCTAssertTrue(app.staticTexts["You"].waitForExistence(timeout: Self.wait), "the app never drew")
         Thread.sleep(forTimeInterval: seconds)
-        app.buttons["Ended"].tap()
+        endRide()
+    }
+
+    /// Ends the ride and waits for its summary.
+    ///
+    /// On a busy CI runner (16 October 2026) the tap on Ended was synthesised, and 30 seconds later
+    /// there was still no summary, while every other test's summary came within a few seconds. As
+    /// with dropping back, ending again is harmless, so a tap that did not take is repeated.
+    private func endRide() {
+        let summary = app.staticTexts["summary-distance"]
+        for _ in 1...3 {
+            app.buttons["Ended"].tap()
+            if summary.waitForExistence(timeout: 15) { return }
+        }
+        XCTFail("ending the ride produced no summary")
     }
 
     /// Drops a rider back and waits until the ride says so.
