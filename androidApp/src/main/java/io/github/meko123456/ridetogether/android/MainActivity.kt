@@ -3,6 +3,7 @@ package io.github.meko123456.ridetogether.android
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -19,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
@@ -112,6 +114,21 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // The disclosure promises location is collected "only while the ride notification is
+        // showing". From Android 13 that notification needs a grant of its own: without one the
+        // service still runs and still shares, but its notification never reaches the shade, so
+        // the rider has nothing on screen saying their position is going out. Asked once a ride
+        // shares, and on a grant the service posts its notification again so it appears now.
+        var notificationsAsked by rememberSaveable { mutableStateOf(false) }
+        val requestNotifications = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { granted ->
+            val state = vm.room?.state
+            if (granted && state != null && state.sharesLocation && hasLocationPermission()) {
+                RideLocationService.syncWith(this@MainActivity, state)
+            }
+        }
+
         if (vm.showLocationDisclosure) {
             LocationDisclosure(
                 onContinue = {
@@ -138,8 +155,13 @@ class MainActivity : ComponentActivity() {
                 roomState == null -> RideLocationService.stop(this@MainActivity)
                 !roomState.sharesLocation ->
                     RideLocationService.syncWith(this@MainActivity, roomState)
-                locationGranted ->
+                locationGranted -> {
                     RideLocationService.syncWith(this@MainActivity, roomState)
+                    if (!notificationsAsked && !notificationsAllowed()) {
+                        notificationsAsked = true
+                        requestNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }
                 vm.needsDisclosure(permissionGranted = false) -> vm.requestDisclosure()
                 // Asked once and refused: the ride runs, just without this rider's pin.
                 else -> Unit
@@ -199,6 +221,12 @@ class MainActivity : ComponentActivity() {
      */
     private fun hasLocationPermission(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+
+    /** Before Android 13 notifications needed no permission. */
+    private fun notificationsAllowed(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
 
     /**
