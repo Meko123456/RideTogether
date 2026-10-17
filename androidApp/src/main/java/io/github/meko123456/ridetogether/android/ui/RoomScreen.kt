@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -21,6 +22,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -288,6 +293,9 @@ private fun Controls(room: Room, onCommand: (RoomCommand) -> Unit) {
     val canStart = RoomStateMachine.canTransition(room.state, RoomState.RIDING)
     val canPause = RoomStateMachine.canTransition(room.state, RoomState.PAUSED)
     val canEnd = RoomStateMachine.canTransition(room.state, RoomState.ENDED)
+    // Ending is for good — an ended room goes nowhere — and for every rider at once, and the
+    // button sat one tap below Pause.
+    var confirmingEnd by rememberSaveable { mutableStateOf(false) }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (canStart) {
@@ -306,9 +314,23 @@ private fun Controls(room: Room, onCommand: (RoomCommand) -> Unit) {
             }
         }
         if (canEnd) {
-            OutlinedButton(onClick = { onCommand(RoomCommand.EndRide) }, modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(onClick = { confirmingEnd = true }, modifier = Modifier.fillMaxWidth()) {
                 Text("End ride")
             }
+        }
+        if (confirmingEnd && canEnd) {
+            AlertDialog(
+                onDismissRequest = { confirmingEnd = false },
+                title = { Text("End the ride for everyone?") },
+                text = { Text("Every rider stops sharing their position, and an ended ride can't be started again.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmingEnd = false
+                        onCommand(RoomCommand.EndRide)
+                    }) { Text("End ride") }
+                },
+                dismissButton = { TextButton(onClick = { confirmingEnd = false }) { Text("Keep the ride") } },
+            )
         }
         if (room.state == RoomState.ENDED) {
             Text(
