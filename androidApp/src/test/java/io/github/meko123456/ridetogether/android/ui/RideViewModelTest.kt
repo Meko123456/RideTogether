@@ -156,6 +156,21 @@ class RideViewModelTest {
     }
 
     @Test
+    fun `a pasted invite fills in its code`() = runTest(dispatcher) {
+        val vm = viewModel()
+        // Messengers don't make a ridetogether:// link tappable, so the invite gets copied whole.
+        // The field's 16-character cap kept "Join my ride: ri" and lost the code.
+        vm.onCodeInputChange("Join my ride: ridetogether://join/A2B4C7")
+        assertEquals("A2B4C7", vm.codeInput)
+        assertEquals(JoinCode("A2B4C7"), vm.resolvedCode)
+
+        // Typing still goes through as typed, separators and all.
+        vm.onCodeInputChange("a2b-4c7")
+        assertEquals("a2b-4c7", vm.codeInput)
+        assertEquals(JoinCode("A2B4C7"), vm.resolvedCode)
+    }
+
+    @Test
     fun `starting a ride alone is refused with a reason rather than silently`() = runTest(dispatcher) {
         val vm = viewModel()
         vm.createRide()

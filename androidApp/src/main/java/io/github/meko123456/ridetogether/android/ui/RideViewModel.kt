@@ -178,9 +178,13 @@ class RideViewModel(
     }
 
     fun onCodeInputChange(value: String) {
+        // A pasted invite is how most riders get a code: messengers don't make a ridetogether://
+        // link tappable, so "Join my ride: ridetogether://join/A2B4C7" is copied whole. Keep its
+        // code; the cap below cut the message off at "Join my ride: ri", code and all.
+        val typed = JoinPolicy.codeFromInvite(value) ?: value
         // Allow separators through so the rider can type what they see ("A2B-4C7"); the domain
         // strips them. Cap generously rather than at LENGTH so normalisation has room to work.
-        codeInput = value.take(16)
+        codeInput = typed.take(16)
         notice = null
     }
 

@@ -55,5 +55,14 @@ object JoinPolicy {
         return uri.removePrefix(prefix).trim('/').takeIf { it.isNotEmpty() }
     }
 
+    /**
+     * The code in a pasted invite ("Join my ride: ridetogether://join/ABC234"), or null if the text
+     * holds none. Messengers don't make a ridetogether:// link tappable, so an invite is mostly
+     * copied whole and pasted into the code field.
+     */
+    fun codeFromInvite(text: String): String? = invite.find(text)?.groupValues?.get(1)
+
     const val SCHEME = "ridetogether"
+
+    private val invite = Regex("""$SCHEME://join/([0-9A-Za-z-]+)""", RegexOption.IGNORE_CASE)
 }

@@ -100,6 +100,14 @@ class JoinPolicyTest {
     }
 
     @Test
+    fun `a pasted invite gives its code`() {
+        assertEquals("ABC234", JoinPolicy.codeFromInvite("Join my ride: ridetogether://join/ABC234"))
+        assertEquals("abc-234", JoinPolicy.codeFromInvite("RideTogether://JOIN/abc-234/ see you there"))
+        assertNull(JoinPolicy.codeFromInvite("ABC234"))
+        assertNull(JoinPolicy.codeFromInvite("Join my ride: https://example.com/join/ABC234"))
+    }
+
+    @Test
     fun `a foreign or malformed link yields no code`() {
         assertNull(JoinPolicy.codeFromDeepLink("https://example.com/join/ABC234"))
         assertNull(JoinPolicy.codeFromDeepLink("ridetogether://join/"))
