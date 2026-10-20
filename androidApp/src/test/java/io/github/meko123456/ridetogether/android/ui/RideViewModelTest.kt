@@ -171,6 +171,21 @@ class RideViewModelTest {
     }
 
     @Test
+    fun `an invite to the ride you are in says so rather than asking you to leave it`() = runTest(dispatcher) {
+        val vm = viewModel()
+        vm.createRide()
+        advanceUntilIdle()
+        val own = vm.room!!.code.value
+        val other = if (own == "A2B4C7") "B3C5D8" else "A2B4C7"
+
+        vm.onInviteReceived(own)
+        assertEquals("That invite is for this ride, and you're already in it.", vm.notice)
+
+        vm.onInviteReceived(other)
+        assertEquals("Invite for $other — leave this ride first to join it.", vm.notice)
+    }
+
+    @Test
     fun `starting a ride alone is refused with a reason rather than silently`() = runTest(dispatcher) {
         val vm = viewModel()
         vm.createRide()

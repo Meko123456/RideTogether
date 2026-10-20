@@ -236,10 +236,10 @@ class RideViewModel(
         onCodeInputChange(rawCode)
         if (room == null) return
         val resolved = JoinCode.parseOrNull(rawCode)
-        notice = if (resolved != null) {
-            "Invite for ${resolved.value} — leave this ride first to join it."
-        } else {
-            "That invite link isn't a valid ride code."
+        notice = when (resolved) {
+            null -> "That invite link isn't a valid ride code."
+            room?.code -> "That invite is for this ride, and you're already in it."
+            else -> "Invite for ${resolved.value} — leave this ride first to join it."
         }
     }
 

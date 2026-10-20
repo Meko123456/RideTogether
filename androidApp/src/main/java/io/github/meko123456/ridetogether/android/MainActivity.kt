@@ -52,7 +52,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        pendingCode = codeFrom(intent)
+        // On a fresh start only. Recreated when the phone turns, the activity is handed the intent
+        // it was first opened with, so an invite from long before came in again: over the code the
+        // rider had typed since, or mid-ride as "Invite for … leave this ride first" on every turn.
+        if (savedInstanceState == null) pendingCode = codeFrom(intent)
 
         setContent {
             RideTogetherTheme {
@@ -213,12 +216,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Reached only because the activity is `singleTop`. Without it Android stacks a *second*
-     * MainActivity for an incoming invite — a fresh ViewModel on top of the running one, so the
-     * ride you were already in disappears behind a duplicate copy of the app. Found on a device;
-     * a tapped invite has to bring the app you are using forward, not open another one.
-     */
     private fun hasLocationPermission(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED
@@ -251,6 +248,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Reached only because the activity is `singleTop`. Without it Android stacks a *second*
+     * MainActivity for an incoming invite — a fresh ViewModel on top of the running one, so the
+     * ride you were already in disappears behind a duplicate copy of the app. Found on a device;
+     * a tapped invite has to bring the app you are using forward, not open another one.
+     */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         pendingCode = codeFrom(intent)
