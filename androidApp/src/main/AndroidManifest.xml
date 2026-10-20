@@ -60,6 +60,16 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="ridetogether" android:host="join" />
             </intent-filter>
+
+            <!--
+              Messengers don't make that private scheme tappable, so the invite message can be
+              shared to RideTogether instead, and the code is read out of its text.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
         <service
             android:name=".location.RideLocationService"

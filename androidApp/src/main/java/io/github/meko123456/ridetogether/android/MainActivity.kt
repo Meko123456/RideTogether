@@ -43,7 +43,10 @@ import io.github.meko123456.ridetogether.room.JoinPolicy
 
 class MainActivity : ComponentActivity() {
 
-    /** A code carried in by a `ridetogether://join/<CODE>` invite, waiting to be handed to the UI. */
+    /**
+     * A code carried in by an invite, waiting to be handed to the UI: a tapped
+     * `ridetogether://join/<CODE>` link, or the invite message shared to the app.
+     */
     private var pendingCode by mutableStateOf<String?>(null)
 
     /** Bumped whenever a permission result comes back, so the composition re-reads the grant. */
@@ -259,8 +262,17 @@ class MainActivity : ComponentActivity() {
         pendingCode = codeFrom(intent)
     }
 
-    private fun codeFrom(intent: Intent?): String? =
-        intent?.data?.toString()?.let(JoinPolicy::codeFromDeepLink)
+    /**
+     * The code in [intent]. Shared text is mostly the whole "Join my ride: ridetogether://join/…"
+     * message; text without that link is taken as a code typed out, and the code field says
+     * whether it is one, as it does for anything typed.
+     */
+    private fun codeFrom(intent: Intent?): String? = when (intent?.action) {
+        Intent.ACTION_SEND -> intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
+            ?.let { JoinPolicy.codeFromInvite(it) ?: it.trim() }
+            ?.takeIf { it.isNotEmpty() }
+        else -> intent?.data?.toString()?.let(JoinPolicy::codeFromDeepLink)
+    }
 
     private fun shareInvite(link: String) {
         val send = Intent(Intent.ACTION_SEND).apply {
