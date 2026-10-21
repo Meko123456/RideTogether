@@ -49,6 +49,9 @@ class MainActivity : ComponentActivity() {
      */
     private var pendingCode by mutableStateOf<String?>(null)
 
+    /** Set by the launcher's Join a ride shortcut (res/xml/shortcuts.xml) until the code field has focus. */
+    private var joinRequested by mutableStateOf(false)
+
     /** Bumped whenever a permission result comes back, so the composition re-reads the grant. */
     private var permissionTick by mutableIntStateOf(0)
 
@@ -59,6 +62,7 @@ class MainActivity : ComponentActivity() {
         // it was first opened with, so an invite from long before came in again: over the code the
         // rider had typed since, or mid-ride as "Invite for … leave this ride first" on every turn.
         if (savedInstanceState == null) pendingCode = codeFrom(intent)
+        if (savedInstanceState == null && intent?.action == ACTION_JOIN_RIDE) joinRequested = true
 
         setContent {
             RideTogetherTheme {
@@ -189,6 +193,8 @@ class MainActivity : ComponentActivity() {
                     onCreateRide = vm::createRide,
                     onJoinRide = vm::joinByCode,
                     rides = vm.rides,
+                    focusCode = joinRequested,
+                    onCodeFocused = { joinRequested = false },
                     modifier = Modifier.padding(insets),
                 )
             } else {
@@ -280,5 +286,9 @@ class MainActivity : ComponentActivity() {
             putExtra(Intent.EXTRA_TEXT, "Join my ride: $link")
         }
         startActivity(Intent.createChooser(send, null))
+    }
+
+    companion object {
+        const val ACTION_JOIN_RIDE = "io.github.meko123456.ridetogether.action.JOIN_RIDE"
     }
 }

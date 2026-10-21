@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press RideTogether's icon: the ride code field, ready for the code someone read out. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="join_ride"
+        android:icon="@drawable/ic_shortcut_join"
+        android:shortcutShortLabel="@string/shortcut_join_ride_short"
+        android:shortcutLongLabel="@string/shortcut_join_ride_long">
+        <intent
+            android:action="io.github.meko123456.ridetogether.action.JOIN_RIDE"
+            android:targetClass="io.github.meko123456.ridetogether.android.MainActivity"
+            android:targetPackage="io.github.meko123456.ridetogether" />
+    </shortcut>
+</shortcuts>

@@ -18,7 +18,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -41,7 +45,18 @@ fun HomeScreen(
     onJoinRide: () -> Unit,
     rides: List<StoredRide>,
     modifier: Modifier = Modifier,
+    focusCode: Boolean = false,
+    onCodeFocused: () -> Unit = {},
 ) {
+    // The Join a ride shortcut: the code is what someone is reading out, so the field has the
+    // keyboard as soon as the screen is up.
+    val codeField = remember { FocusRequester() }
+    LaunchedEffect(focusCode) {
+        if (focusCode) {
+            codeField.requestFocus()
+            onCodeFocused()
+        }
+    }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -112,7 +127,7 @@ fun HomeScreen(
                         letterSpacing = 6.sp,
                         textAlign = TextAlign.Center,
                     ),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().focusRequester(codeField),
                 )
                 // Tell the rider what their sloppy typing became, but only when it changed —
                 // silently "fixing" a code is how you end up in the wrong ride.
