@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -133,11 +135,16 @@ fun HomeScreen(
                 // silently "fixing" a code is how you end up in the wrong ride.
                 val normalised = JoinCode.normalise(codeInput)
                 if (normalised.isNotEmpty() && normalised != codeInput.trim().uppercase()) {
+                    // Scrolled into view as it appears and changes. Typed with the keyboard up, it
+                    // came under the keyboard: Compose keeps the field in view, not what follows it.
+                    val readsAs = remember { BringIntoViewRequester() }
                     Text(
                         "Reads as $normalised",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.bringIntoViewRequester(readsAs),
                     )
+                    LaunchedEffect(normalised) { readsAs.bringIntoView() }
                 }
                 OutlinedButton(
                     onClick = onJoinRide,
