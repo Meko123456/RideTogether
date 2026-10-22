@@ -10,6 +10,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -82,7 +85,7 @@ class MainActivity : ComponentActivity() {
     /** The screens before there is a backend: nothing to announce yet, only the insets to keep clear of. */
     @Composable
     private fun Gate(content: @Composable (Modifier) -> Unit) {
-        Scaffold { insets -> content(Modifier.padding(insets)) }
+        Scaffold { insets -> content(Modifier.aboveTheKeyboard(insets)) }
     }
 
     /** The app proper, once there is a backend to ride through and a rider [client] writes as. */
@@ -195,7 +198,7 @@ class MainActivity : ComponentActivity() {
                     rides = vm.rides,
                     focusCode = joinRequested,
                     onCodeFocused = { joinRequested = false },
-                    modifier = Modifier.padding(insets),
+                    modifier = Modifier.aboveTheKeyboard(insets),
                 )
             } else {
                 RoomScreen(
@@ -224,6 +227,15 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    /**
+     * Inside the Scaffold's insets and ending at the top of the keyboard, for the screens with text
+     * fields (the activity is adjustResize). Without it the window was panned instead, and what is
+     * under the ride code field (the line saying what a typed code reads as, and Join) stayed under
+     * the keyboard however far the screen was scrolled.
+     */
+    private fun Modifier.aboveTheKeyboard(insets: PaddingValues): Modifier =
+        padding(insets).consumeWindowInsets(insets).imePadding()
 
     private fun hasLocationPermission(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
