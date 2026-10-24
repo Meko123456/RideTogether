@@ -378,4 +378,31 @@ class RideViewModelTest {
         assertNull(vm.room)
         assertTrue(vm.feed.isEmpty(), "the previous ride's log should not follow you out")
     }
+
+    @Test
+    fun `only notices that need Android's settings offer them`() = runTest(dispatcher) {
+        val vm = viewModel()
+
+        vm.onDisclosureDeclined()
+        assertTrue(vm.notice != null)
+        assertFalse(vm.noticeOffersSettings, "a first refusal can be asked again from the app")
+
+        vm.onLocationBlocked()
+        assertTrue(vm.noticeOffersSettings, "once Android stops asking, settings are the way left")
+
+        vm.consumeNotice()
+        vm.onApproximateLocationOnly()
+        assertTrue(vm.noticeOffersSettings, "Precise is only chosen in Android's settings")
+    }
+
+    @Test
+    fun `a later notice takes the settings offer away with it`() = runTest(dispatcher) {
+        val vm = viewModel()
+        vm.onLocationBlocked()
+        vm.onCodeInputChange("A2B")
+        vm.joinByCode()
+        advanceUntilIdle()
+        assertTrue(vm.notice != null, "joining a short code says why it can't")
+        assertFalse(vm.noticeOffersSettings)
+    }
 }

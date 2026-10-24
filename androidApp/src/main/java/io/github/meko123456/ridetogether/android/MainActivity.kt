@@ -3,8 +3,10 @@ package io.github.meko123456.ridetogether.android
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -15,8 +17,10 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,6 +31,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.meko123456.ridetogether.alerts.RiderSample
@@ -105,7 +110,15 @@ class MainActivity : ComponentActivity() {
 
         LaunchedEffect(vm.notice) {
             vm.notice?.let {
-                snackbarHostState.showSnackbar(it)
+                val offersSettings = vm.noticeOffersSettings
+                val result = snackbarHostState.showSnackbar(
+                    it,
+                    actionLabel = if (offersSettings) "Settings" else null,
+                    duration = if (offersSettings) SnackbarDuration.Long else SnackbarDuration.Short,
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
+                }
                 vm.consumeNotice()
             }
         }
@@ -123,6 +136,12 @@ class MainActivity : ComponentActivity() {
             when {
                 fine -> Unit
                 coarse -> vm.onApproximateLocationOnly()
+                // Refused with no rationale left: Android has stopped asking, and the prompt
+                // won't come back however often the rider tries.
+                !ActivityCompat.shouldShowRequestPermissionRationale(
+                    this@MainActivity,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                ) -> vm.onLocationBlocked()
                 else -> vm.onDisclosureDeclined()
             }
         }

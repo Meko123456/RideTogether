@@ -161,6 +161,16 @@ class RideViewModel(
         private set
 
     /**
+     * The notice, when it is one only Android's settings can act on: Precise location, or a
+     * location Android won't ask for again. Kept as the notice itself rather than a flag, so a
+     * later notice that replaces it takes the offer away with it.
+     */
+    private var settingsNotice: String? = null
+
+    /** Whether [notice] should offer the app's settings page. */
+    val noticeOffersSettings: Boolean get() = notice != null && notice == settingsNotice
+
+    /**
      * True while the disclosure dialog should be on screen. Play requires it *before* the runtime
      * request, so the permission is never asked for until this has been shown and accepted.
      */
@@ -190,6 +200,7 @@ class RideViewModel(
 
     fun consumeNotice() {
         notice = null
+        settingsNotice = null
     }
 
     /**
@@ -222,6 +233,19 @@ class RideViewModel(
     fun onApproximateLocationOnly() {
         notice = "Approximate location is not accurate enough to see the group. " +
             "Choose Precise in Android's location settings for RideTogether."
+        settingsNotice = notice
+    }
+
+    /**
+     * Location refused after Android has stopped asking. No prompt appears any more, so "you can
+     * allow location later" had no way to happen from inside the app; the settings page is the
+     * one place left. The ride still runs.
+     */
+    fun onLocationBlocked() {
+        showLocationDisclosure = false
+        notice = "The ride will run without your position on the map. " +
+            "Location is off for RideTogether in Android's settings."
+        settingsNotice = notice
     }
 
     /**
