@@ -177,7 +177,7 @@ final class RideFlowTests: XCTestCase {
         // insists on before calling a halt a stop, which keeps traffic lights out of the total —
         // as one stop. Ride time runs at ten to one, so ten real seconds is comfortably clear
         // of the minute.
-        app.buttons["Paused"].tap()
+        pause()
         Thread.sleep(forTimeInterval: 10)
         endRide()
 
@@ -216,6 +216,23 @@ final class RideFlowTests: XCTestCase {
             if summary.waitForExistence(timeout: 15) { return }
         }
         XCTFail("ending the ride produced no summary")
+    }
+
+    /// Pauses the ride and waits until the picker says so.
+    ///
+    /// On a busy CI runner (13 November 2026) the tap on Paused was synthesised and never landed:
+    /// the group rode on, the summary booked "0s stopped", and the test blamed the summariser.
+    /// Pausing again is harmless, so a tap that did not take is repeated, as with Ended and
+    /// dropping back.
+    private func pause() {
+        let paused = app.buttons["Paused"]
+        let selected = NSPredicate(format: "isSelected == true")
+        for _ in 1...3 {
+            paused.tap()
+            let landed = XCTNSPredicateExpectation(predicate: selected, object: paused)
+            if XCTWaiter().wait(for: [landed], timeout: 10) == .completed { return }
+        }
+        XCTFail("pausing the ride never reached the picker")
     }
 
     /// Drops a rider back and waits until the ride says so.
