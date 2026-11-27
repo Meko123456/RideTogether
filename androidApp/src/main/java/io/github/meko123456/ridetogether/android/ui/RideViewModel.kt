@@ -619,7 +619,6 @@ class RideViewModel(
 
     override fun onCleared() {
         speaker.release()
-        super.onCleared()
     }
 
     private fun describe(error: RealtimeError): String = when (error) {
